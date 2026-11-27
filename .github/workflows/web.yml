@@ -35,7 +35,6 @@ jobs:
         working-directory: web
         env:
           FITOTV_VERSION: 1.0.${{ github.run_number }}
-          VITE_HOME: http://tv.puntociego.marketing/
         run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
