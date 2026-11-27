@@ -6,6 +6,10 @@ on:
     paths:
       - "web/**"
       - ".github/workflows/web.yml"
+      - ".github/tienda/demo.py"
+  # Cada lunes se vuelve a publicar para que la guía de la lista de ejemplo siga al día.
+  schedule:
+    - cron: "17 6 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -36,6 +40,12 @@ jobs:
         env:
           FITOTV_VERSION: 1.0.${{ github.run_number }}
         run: npm run build
+      - name: Lista de ejemplo (para quien revisa en las tiendas)
+        env:
+          DEMO_HORAS: "200"
+        run: |
+          pip install --quiet pillow
+          python3 .github/tienda/demo.py web/dist/demo https://adolfomendozam.github.io/fitotv/demo/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/dist

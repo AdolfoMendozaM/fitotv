@@ -128,7 +128,8 @@ def main():
         lines.append(VOD + '?v=' + s)
     open(os.path.join(OUT, 'lista.m3u'), 'w', encoding='utf-8').write('\n'.join(lines) + '\n')
 
-    # Guía: de 2 horas antes a 10 horas después de ahora, en bloques de 30 a 90 minutos.
+    # Guía: de 2 horas antes a DEMO_HORAS después de ahora (10 por omisión), en bloques de 30 a 90 minutos.
+    ahead = int(os.environ.get('DEMO_HORAS', '10'))
     now = dt.datetime.now(dt.timezone.utc).replace(second=0, microsecond=0)
     start0 = now.replace(minute=0) - dt.timedelta(hours=2)
     fmt = lambda t: t.strftime('%Y%m%d%H%M%S +0000')
@@ -141,7 +142,7 @@ def main():
         rnd = random.Random(name)
         t = start0
         k = rnd.randrange(len(shows))
-        while t < now + dt.timedelta(hours=10):
+        while t < now + dt.timedelta(hours=ahead):
             dur = dt.timedelta(minutes=rnd.choice([30, 30, 60, 60, 90]))
             title = shows[k % len(shows)]
             xml.append(f'  <programme start="{fmt(t)}" stop="{fmt(t + dur)}" channel="{s}">'
