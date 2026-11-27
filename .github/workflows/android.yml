@@ -40,6 +40,16 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon :app:testDebugUnitTest
 
+      - name: Revisar que esté la llave de firma
+        if: github.event_name != 'pull_request'
+        env:
+          HAY_LLAVE: ${{ secrets.FITOTV_KEYSTORE_B64 != '' && secrets.FITOTV_KEYSTORE_PASSWORD != '' && secrets.FITOTV_KEY_ALIAS != '' && secrets.FITOTV_KEY_PASSWORD != '' }}
+        run: |
+          if [ "$HAY_LLAVE" != "true" ]; then
+            echo "::error::Falta la llave de firma. Agrega FITOTV_KEYSTORE_B64, FITOTV_KEYSTORE_PASSWORD, FITOTV_KEY_ALIAS y FITOTV_KEY_PASSWORD en Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
       - name: Armar el instalable
         env:
           FITOTV_KEYSTORE_B64: ${{ secrets.FITOTV_KEYSTORE_B64 }}

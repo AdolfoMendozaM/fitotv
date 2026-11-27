@@ -62,20 +62,20 @@ https://github.com/AdolfoMendozaM/fitotv/releases/latest/download/FitoTV.apk
 3. Ve a *Configuración → Apps → Seguridad y restricciones → Fuentes desconocidas* y activa **Downloader**. (En algunas teles el menú se llama distinto, por ejemplo *Acceso especial de apps → Instalar apps desconocidas*.)
 4. Abre Downloader, escribe el enlace de arriba y elige *Instalar*.
 
-Cada versión nueva se instala encima de la anterior y conserva perfiles, listas y recientes. Para actualizar, repite el paso 4.
+Cada versión nueva se instala encima de la anterior y conserva perfiles, listas y recientes. Para actualizar, entra a *Ajustes → Actualizar FitoTV* (aparece cuando hay versión nueva) o repite el paso 4.
 
 > Para no escribir el enlace completo con el control, crea un código numérico con el acortador de AFTVnews (aftv.news) usando el enlace de arriba; en Downloader solo se teclea el número. Como el enlace nunca cambia, el mismo código sirve para todas las versiones.
 
 ## Firma del instalable
 
-Mientras no haya una llave propia, el instalable se firma con `app/familia-debug.keystore`, una llave de pruebas que vive en el repositorio para que todas las versiones se puedan instalar encima de la anterior. Antes de publicar en tiendas, crea una llave propia y guárdala en los secretos del repositorio:
+El instalable se firma con la llave privada de FitoTV, que vive solo en los secretos del repositorio (nunca en el código):
 
-- `FITOTV_KEYSTORE_B64` (el archivo .keystore en base64)
+- `FITOTV_KEYSTORE_B64` (el archivo de la llave en base64)
 - `FITOTV_KEYSTORE_PASSWORD`
 - `FITOTV_KEY_ALIAS`
 - `FITOTV_KEY_PASSWORD`
 
-Ojo: al cambiar de llave hay que desinstalar la versión anterior una sola vez.
+Si faltan, GitHub no publica la versión. Guarda un respaldo de la llave fuera de GitHub: si se pierde, las nuevas versiones ya no se pueden instalar encima y habría que reinstalar en todas las teles.
 
 ## Estructura
 

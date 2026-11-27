@@ -20,25 +20,20 @@ android {
         versionName = System.getenv("FITOTV_VERSION_NAME") ?: "1.0.0"
     }
 
+    // Firma de la familia: llave privada guardada en los secretos de GitHub (nunca en el repositorio).
+    // Todas las versiones se firman con ella para que se instalen encima sin borrar nada.
+    val keystoreB64 = System.getenv("FITOTV_KEYSTORE_B64")
+    val hasFamilyKey = !keystoreB64.isNullOrBlank()
     signingConfigs {
-        // Familia: si hay una llave propia en los secretos de GitHub se usa esa;
-        // si no, la llave de pruebas del repositorio, para que las actualizaciones
-        // siempre se instalen encima sin borrar nada.
-        create("familia") {
-            val keystoreB64 = System.getenv("FITOTV_KEYSTORE_B64")
-            if (!keystoreB64.isNullOrBlank()) {
+        if (hasFamilyKey) {
+            create("familia") {
                 val out = layout.buildDirectory.file("fitotv-release.keystore").get().asFile
                 out.parentFile.mkdirs()
-                out.writeBytes(Base64.getDecoder().decode(keystoreB64.trim()))
+                out.writeBytes(Base64.getDecoder().decode(keystoreB64!!.trim()))
                 storeFile = out
                 storePassword = System.getenv("FITOTV_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("FITOTV_KEY_ALIAS")
                 keyPassword = System.getenv("FITOTV_KEY_PASSWORD")
-            } else {
-                storeFile = file("familia-debug.keystore")
-                storePassword = "android"
-                keyAlias = "androiddebugkey"
-                keyPassword = "android"
             }
         }
     }
@@ -48,11 +43,12 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("familia")
+            // Sin la llave el instalable sale sin firmar y el flujo de GitHub se detiene antes de publicarlo.
+            if (hasFamilyKey) signingConfig = signingConfigs.getByName("familia")
         }
         debug {
+            // Versión de prueba (com.fitotv.app.dev): llave de depuración normal de Android.
             applicationIdSuffix = ".dev"
-            signingConfig = signingConfigs.getByName("familia")
         }
     }
 
