@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="noche">#FF0A1747</color>
+
+    <style name="Theme.FitoTV" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/noche</item>
+        <item name="android:colorBackground">@color/noche</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:statusBarColor">@color/noche</item>
+        <item name="android:navigationBarColor">@color/noche</item>
+    </style>
+</resources>

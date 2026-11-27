@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FitoTV · Agregar lista</title>
+<style>
+  :root { --noche:#0A1747; --panel:#12235F; --linea:#22397F; --texto:#F5F7FF; --suave:#AEBBEB; --azul:#2350E0; --menta:#3DE0BE; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--noche); color:var(--texto); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:480px; margin:0 auto; padding:28px 20px 48px; }
+  .marca { display:flex; align-items:center; gap:10px; font-weight:800; font-size:22px; }
+  .marca span { width:34px; height:28px; border-radius:8px; background:var(--azul); display:flex; align-items:center; justify-content:center; }
+  h1 { font-size:28px; line-height:1.15; margin:28px 0 8px; }
+  p.sub { color:var(--suave); margin:0 0 24px; line-height:1.5; }
+  .tabs { display:flex; gap:8px; margin-bottom:20px; }
+  .tabs button { flex:1; height:44px; border-radius:22px; border:0; background:var(--panel); color:var(--texto); font:inherit; font-weight:600; font-size:15px; }
+  .tabs button[aria-pressed="true"] { background:var(--azul); }
+  label { display:block; font-weight:600; font-size:15px; margin:16px 0 6px; }
+  input { width:100%; height:50px; border-radius:14px; border:2px solid var(--linea); background:#0F1F5C; color:var(--texto); font:inherit; font-size:16px; padding:0 14px; }
+  input[type=file] { padding:12px; height:auto; }
+  input:focus { outline:none; border-color:var(--menta); }
+  .hint { color:var(--suave); font-size:14px; margin-top:6px; line-height:1.4; }
+  .send { width:100%; height:54px; margin-top:28px; border-radius:27px; border:0; background:var(--azul); color:#fff; font:inherit; font-weight:700; font-size:17px; }
+  .send:disabled { opacity:.6; }
+  .result { margin:0 0 20px; padding:14px 16px; border-radius:14px; line-height:1.45; }
+  .result.ok { background:rgba(61,224,190,.16); color:var(--menta); }
+  .result.err { background:rgba(255,197,61,.14); color:#FFC53D; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="marca"><span>▶</span>FitoTV</div>
+  <h1>Agrega tu lista a la tele</h1>
+  <p class="sub">Pégala aquí y aparece sola en la tele. Tu celular y la tele tienen que estar en la misma red Wi-Fi.</p>
+  <!--RESULT-->
+  <div class="tabs" role="group" aria-label="Cómo quieres agregarla">
+    <button type="button" data-tab="enlace" aria-pressed="true">Enlace</button>
+    <button type="button" data-tab="archivo" aria-pressed="false">Archivo</button>
+    <button type="button" data-tab="usuario" aria-pressed="false">Usuario</button>
+  </div>
+  <form id="f">
+    <label for="nombre">Nombre de la lista</label>
+    <input id="nombre" name="nombre" placeholder="Casa de mamá" maxlength="40" autocomplete="off">
+
+    <div data-panel="enlace">
+      <label for="enlace">Enlace de la lista</label>
+      <input id="enlace" name="enlace" type="url" inputmode="url" placeholder="http://…/lista.m3u" autocomplete="off">
+      <div class="hint">Es la dirección que termina en .m3u o .m3u8, o la que te dio tu proveedor.</div>
+    </div>
+
+    <div data-panel="archivo" hidden>
+      <label for="archivo">Archivo .m3u</label>
+      <input id="archivo" type="file" accept=".m3u,.m3u8,.txt,audio/x-mpegurl,application/vnd.apple.mpegurl">
+    </div>
+
+    <div data-panel="usuario" hidden>
+      <label for="servidor">Servidor</label>
+      <input id="servidor" name="servidor" inputmode="url" placeholder="http://servidor.com:8080" autocomplete="off">
+      <label for="usuario">Usuario</label>
+      <input id="usuario" name="usuario" autocomplete="off" autocapitalize="none">
+      <label for="contrasena">Contraseña</label>
+      <input id="contrasena" name="contrasena" type="password" autocomplete="off">
+      <div class="hint">Son los datos que te dio tu proveedor (Xtream Codes).</div>
+    </div>
+
+    <button class="send" id="send" type="submit">Mandar a la tele</button>
+  </form>
+</main>
+<script>
+  var tab = 'enlace';
+  document.querySelectorAll('[data-tab]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      tab = b.getAttribute('data-tab');
+      document.querySelectorAll('[data-tab]').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      document.querySelectorAll('[data-panel]').forEach(function (p) { p.hidden = p.getAttribute('data-panel') !== tab; });
+    });
+  });
+  function send(extra) {
+    var body = new URLSearchParams();
+    body.append('tipo', tab);
+    body.append('nombre', document.getElementById('nombre').value);
+    if (tab === 'enlace') body.append('enlace', document.getElementById('enlace').value);
+    if (tab === 'usuario') {
+      body.append('servidor', document.getElementById('servidor').value);
+      body.append('usuario', document.getElementById('usuario').value);
+      body.append('contrasena', document.getElementById('contrasena').value);
+    }
+    if (extra) body.append('contenido', extra);
+    fetch('/lista', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: body.toString() })
+      .then(function (r) { return r.text(); })
+      .then(function (html) { document.open(); document.write(html); document.close(); })
+      .catch(function () { alert('No pudimos hablar con la tele. Revisa que estén en la misma red Wi-Fi.'); document.getElementById('send').disabled = false; });
+  }
+  document.getElementById('f').addEventListener('submit', function (e) {
+    e.preventDefault();
+    document.getElementById('send').disabled = true;
+    if (tab === 'archivo') {
+      var file = document.getElementById('archivo').files[0];
+      if (!file) { alert('Elige el archivo de tu lista.'); document.getElementById('send').disabled = false; return; }
+      var reader = new FileReader();
+      reader.onload = function () { send(String(reader.result || '')); };
+      reader.onerror = function () { alert('No pudimos leer el archivo.'); document.getElementById('send').disabled = false; };
+      reader.readAsText(file);
+    } else {
+      send(null);
+    }
+  });
+</script>
+</body>
+</html>
