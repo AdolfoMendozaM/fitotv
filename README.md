@@ -4,7 +4,7 @@ Reproductor para listas M3U, pensado para amigos y familia. Cada quien pone sus 
 
 FitoTV no incluye canales: solo reproduce las listas que cada persona agrega.
 
-## Versión 1: tele Android
+## Tele Android
 
 Funciona en **Google TV, Android TV y Fire TV** (Android 5.1 o más nuevo).
 
@@ -18,6 +18,17 @@ Incluye:
 - Guía de programación (XMLTV), películas, series, búsqueda, favoritos y ajustes.
 - Reproductor con cambio de canal (▲▼), salto por número y avance de películas y series.
 - Si una lista no responde, sigue con la copia guardada y avisa.
+
+## Web y celular
+
+La versión web vive en `web/` y se publica sola en **https://adolfomendozam.github.io/fitotv/** cada vez que cambia algo en esa carpeta.
+
+- En compu se usa desde el navegador.
+- En el celular se instala como app: en iPhone, Safari → *Compartir* → *Agregar a inicio*; en Android, Chrome → *Agregar a la pantalla principal*.
+- Las listas, perfiles y recientes se guardan solo en ese aparato.
+- Los navegadores no dejan reproducir canales que usan conexiones sin cifrar (http://) ni leer listas de proveedores que lo bloquean. Esos canales se ven en la app de tele. La web avisa cuántos canales de cada lista se pueden ver ahí.
+
+Para probarla en tu compu: `cd web && npm install && npm run dev`.
 
 ## Cómo se arma
 

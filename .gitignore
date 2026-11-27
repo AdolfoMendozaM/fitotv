@@ -8,3 +8,5 @@ captures/
 .cxx/
 *.apk
 !gradle/wrapper/gradle-wrapper.jar
+web/node_modules/
+web/dist/
