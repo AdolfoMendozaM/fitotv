@@ -284,7 +284,7 @@ fun ChannelLogo(name: String, logo: String, width: Dp, height: Dp, corner: Dp = 
 }
 
 /** Fondo neutro detrás de los logos: deja ver logos claros y de color sobre el azul. */
-private val LogoPlate = Color(0x24FFFFFF)
+private val LogoPlate = Color(0x30FFFFFF)
 
 @Composable
 fun Pill(text: String, bg: Color = Fc.MentaSoft, fg: Color = Fc.Menta, height: Dp = 28.dp, fontSize: Float = 14f, dot: Color? = null) {

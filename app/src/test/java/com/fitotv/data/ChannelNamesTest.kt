@@ -41,6 +41,21 @@ class ChannelNamesTest {
     }
 
     @Test
+    fun quitaResolucionYNotasRepetidas() {
+        val out = clean(
+            "Canal 13 Tabasco (720p) [Not 24/7]", "Canal 28 (720p) [Not 24/7]", "Despierta TV (1080p) [Not 24/7]",
+            "Imagen TV (1080p)", "Canal 22 [Señal MX]",
+        )
+        assertEquals(listOf("Canal 13 Tabasco", "Canal 28", "Despierta TV", "Imagen TV", "Canal 22 [Señal MX]"), out)
+    }
+
+    @Test
+    fun distingueResoluciones() {
+        val out = clean("Canal 5 (720p)", "Canal 5 (1080p)", "Azteca 7 (1080p)")
+        assertEquals(listOf("Canal 5 · 720p", "Canal 5 · 1080p", "Azteca 7"), out)
+    }
+
+    @Test
     fun noCambiaLosId() {
         val input = listOf(ch(1, "≡P2 - Canal 5"), ch(2, "≡P2 - Latina"), ch(3, "≡P2 - TNT"))
         assertEquals(input.map { it.id }, ChannelNames.clean(input).map { it.id })

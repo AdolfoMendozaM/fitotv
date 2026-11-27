@@ -120,4 +120,6 @@ if grep -E "FATAL EXCEPTION|AndroidRuntime: Process: $PKG" "$OUT/logcat.txt" > "
 else
   echo "Sin cierres inesperados."
 fi
+# Apagar el servidor de la lista de prueba para que el paso termine.
+pkill -f "http.server 8765" || true
 exit 0
