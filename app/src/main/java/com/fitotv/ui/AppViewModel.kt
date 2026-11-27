@@ -122,7 +122,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ----- Actualizaciones de la app -----
 
     private val updater = Updater(app)
-    private var updateChecked = false
+    private var lastUpdateCheck = 0L
     private var updateFile: java.io.File? = null
 
     /** Versión nueva publicada en GitHub (null si ya tienes la más reciente). */
@@ -134,13 +134,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Mensaje para Ajustes cuando algo pide un paso tuyo. */
     var updateMsg by mutableStateOf<String?>(null)
         private set
-    /** Ventana emergente "Hay una versión nueva" (se muestra fuera del reproductor). */
+    /** Ventana emergente "Hay una versión nueva" (se muestra fuera del reproductor). Es obligatoria. */
     var updatePrompt by mutableStateOf(false)
         private set
+    /** La descarga o la instalación falló: la ventana deja reintentar o seguir por ahora. */
+    var updateFailed by mutableStateOf(false)
+        private set
 
-    fun dismissUpdatePrompt() {
+    /** Solo después de un fallo: cierra la ventana; vuelve a salir la próxima vez que abras FitoTV. */
+    fun postponeUpdate() {
         updatePrompt = false
         updateMsg = null
+        updateFailed = false
+    }
+
+    /** Al volver a FitoTV (del instalador, de Ajustes del sistema o de otra app). */
+    fun onAppResumed() {
+        if (profileId == null) return
+        if (update != null) {
+            if (updateProgress == null) updatePrompt = true
+        } else checkUpdate()
     }
 
     /** Revisa en silencio una vez por arranque; a mano desde Ajustes avisa también si estás al día. */
@@ -149,8 +162,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (!com.fitotv.BuildConfig.SELF_UPDATE) return
         // Las versiones de prueba (emulador) solo revisan cuando se pide en Ajustes.
         if (!manual && com.fitotv.BuildConfig.DEBUG) return
-        if (!manual && updateChecked) return
-        updateChecked = true
+        // Las teles dejan la app abierta días: se vuelve a revisar al regresar, cada 3 horas como máximo.
+        val now = System.currentTimeMillis()
+        if (!manual && now - lastUpdateCheck < 3 * 60 * 60 * 1000L) return
+        lastUpdateCheck = now
         viewModelScope.launch {
             if (!manual) kotlinx.coroutines.delay(8_000)
             val info = updater.check()
@@ -175,15 +190,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             updateMsg = null
+            updateFailed = false
             updateProgress = 0f
             try {
                 val ready = updateFile?.takeIf { it.exists() && it.name.contains(info.versionName) }
                 val file = ready ?: updater.download(info) { p -> viewModelScope.launch { updateProgress = p } }
                 updateFile = file
+                // La ventana se queda: si cancelas el instalador, al regresar sigue ahí.
                 updater.install(file)
-                updatePrompt = false
             } catch (e: Exception) {
                 updateMsg = "No se pudo bajar la actualización. Revisa tu internet e intenta de nuevo."
+                updateFailed = true
             } finally {
                 updateProgress = null
             }

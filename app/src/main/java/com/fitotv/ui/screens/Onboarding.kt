@@ -407,11 +407,11 @@ private fun TutorialLists() {
 @Composable
 private fun TutorialProfiles() {
     Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.Top) {
-        listOf("audifonos" to "Fito", "pelo_largo" to "Mamá", "chongo" to "Abuela", "coletas" to "Peques").forEach { (av, name) ->
+        listOf("papa" to "Fito", "mama" to "Mamá", "abuela" to "Abuela", "nina" to "Peques").forEach { (av, name) ->
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 AvatarImage(av, 100.dp)
                 T(name, size = 18.sp, weight = FontWeight.SemiBold)
-                if (av == "coletas") T("Solo infantil", size = 14.sp, color = Fc.Menta)
+                if (av == "nina") T("Solo infantil", size = 14.sp, color = Fc.Menta)
             }
         }
     }
@@ -571,7 +571,7 @@ fun CreateProfileScreen(vm: AppViewModel, s: Screen.CreateProfile) {
     val d by vm.data.collectAsState()
     val editing = d.profiles.firstOrNull { it.id == s.editId }
     var name by remember { mutableStateOf(editing?.name ?: "") }
-    var avatar by remember { mutableStateOf(editing?.avatar ?: AvatarId.AUDIFONOS.key) }
+    var avatar by remember { mutableStateOf(editing?.avatar?.let { AvatarId.of(it).key } ?: AvatarId.entries.first().key) }
     var kids by remember { mutableStateOf(editing?.kids ?: false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val nameFr = rememberAutoFocus()
@@ -605,41 +605,45 @@ fun CreateProfileScreen(vm: AppViewModel, s: Screen.CreateProfile) {
             T(if (editing != null) "Edita el perfil" else "Crea tu perfil", size = 48.sp, display = true, letterSpacing = (-1).sp)
             Gap(h = 10.dp)
             T("Así tus listas, favoritos y recientes quedan a tu nombre.", size = 20.sp, color = Fc.Muted)
-            Gap(h = 40.dp)
+            Gap(h = 28.dp)
             T("Tu nombre", size = 18.sp, weight = FontWeight.SemiBold)
             Gap(h = 10.dp)
             TvTextField(name, { name = it.take(20) }, "Escribe tu nombre", focusRequester = nameFr)
-            Gap(h = 32.dp)
+            Gap(h = 24.dp)
             T("Elige tu avatar", size = 18.sp, weight = FontWeight.SemiBold)
-            Gap(h = 14.dp)
-            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                AvatarId.entries.forEach { a ->
-                    val selected = a.key == avatar
-                    FocusBox(
-                        onClick = { avatar = a.key },
-                        modifier = Modifier.size(104.dp),
-                        shape = CircleShape,
-                        radius = 52.dp,
-                        bg = Color.Transparent,
-                        focusedBg = Color.Transparent,
-                    ) {
-                        Box(
-                            Modifier
-                                .fillMaxSize()
-                                .then(if (selected) Modifier.border(4.dp, Fc.Menta, CircleShape) else Modifier)
-                                .padding(if (selected) 8.dp else 0.dp)
-                        ) {
-                            AvatarImage(a.key, if (selected) 88.dp else 104.dp)
+            Gap(h = 12.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                AvatarId.entries.chunked(7).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        row.forEach { a ->
+                            val selected = a.key == avatar
+                            FocusBox(
+                                onClick = { avatar = a.key },
+                                modifier = Modifier.size(78.dp),
+                                shape = CircleShape,
+                                radius = 39.dp,
+                                bg = Color.Transparent,
+                                focusedBg = Color.Transparent,
+                            ) {
+                                Box(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .then(if (selected) Modifier.border(3.dp, Fc.Menta, CircleShape) else Modifier)
+                                        .padding(if (selected) 6.dp else 0.dp)
+                                ) {
+                                    AvatarImage(a.key, if (selected) 66.dp else 78.dp)
+                                }
+                            }
                         }
                     }
                 }
             }
-            Gap(h = 32.dp)
+            Gap(h = 22.dp)
             FocusBox(
                 onClick = { kids = !kids },
                 modifier = Modifier
                     .width(560.dp)
-                    .height(76.dp),
+                    .height(70.dp),
                 radius = 18.dp,
                 shape = RoundedCornerShape(18.dp),
                 bg = Fc.S1,

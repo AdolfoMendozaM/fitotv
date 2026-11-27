@@ -37,6 +37,7 @@ key KEYCODE_DPAD_RIGHT
 key KEYCODE_DPAD_CENTER
 key KEYCODE_DPAD_DOWN
 key KEYCODE_DPAD_DOWN
+key KEYCODE_DPAD_DOWN
 key KEYCODE_DPAD_CENTER
 sleep 3; shot 05-agregar-lista-con-el-celular
 

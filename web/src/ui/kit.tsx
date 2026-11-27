@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
 import type { ContentKind, Programme, RecentItem } from '../data/models';
+import { avatarKey } from '../data/models';
 import { toast } from '../data/store';
 
 const base = import.meta.env.BASE_URL;
@@ -65,7 +66,7 @@ export function Icon({ d, size = 22, color = 'currentColor', stroke = 2, fill }:
 export function Avatar({ k, size, ring }: { k?: string | null; size: number; ring?: boolean }) {
   return (
     <img
-      src={asset(`img/avatar_${k || 'audifonos'}.png`)}
+      src={asset(`img/avatar_${avatarKey(k)}.webp`)}
       alt=""
       width={size}
       height={size}

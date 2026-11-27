@@ -4,12 +4,28 @@ export type ListKind = 'URL' | 'FILE' | 'XTREAM';
 export type ContentKind = 'LIVE' | 'MOVIE' | 'SERIES';
 
 export const AVATARS = [
-  { key: 'audifonos', label: 'Avatar con audífonos' },
-  { key: 'pelo_largo', label: 'Avatar de pelo largo con aretes' },
-  { key: 'gorra', label: 'Avatar con gorra' },
-  { key: 'chongo', label: 'Avatar con chongo y lentes' },
-  { key: 'coletas', label: 'Avatar infantil con coletas' },
+  { key: 'nina', label: 'Niña con trenzas y moños' },
+  { key: 'nino', label: 'Niño con sudadera roja' },
+  { key: 'chava', label: 'Chava con audífonos' },
+  { key: 'chavo', label: 'Chavo con gorra' },
+  { key: 'mama', label: 'Mamá con trenzas y aretes' },
+  { key: 'papa', label: 'Papá con barba y guayabera' },
+  { key: 'abuela', label: 'Abuelita con lentes y rebozo' },
+  { key: 'abuelo', label: 'Abuelito con sombrero' },
+  { key: 'perrito', label: 'Perrito con paliacate' },
+  { key: 'gatito', label: 'Gatito con cascabel' },
+  { key: 'ajolote', label: 'Ajolote' },
+  { key: 'xolo', label: 'Xoloitzcuintle' },
+  { key: 'jaguar', label: 'Jaguarcito' },
 ] as const;
+
+/** Los perfiles hechos con los avatares anteriores pasan al más parecido. */
+const LEGACY_AVATARS: Record<string, string> = { audifonos: 'chava', pelo_largo: 'mama', gorra: 'chavo', chongo: 'abuela', coletas: 'nina' };
+
+export function avatarKey(k?: string | null): string {
+  if (k && AVATARS.some((a) => a.key === k)) return k;
+  return (k && LEGACY_AVATARS[k]) || AVATARS[0].key;
+}
 
 export const LIST_COLORS = ['#3DE0BE', '#2350E0', '#B79CFF', '#FFC53D', '#FF6FA8'];
 

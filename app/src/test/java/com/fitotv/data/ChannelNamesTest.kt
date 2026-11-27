@@ -40,10 +40,34 @@ class ChannelNamesTest {
     }
 
     @Test
-    fun distingueCanalesQueQuedanIguales() {
+    fun nuncaMuestraP2AunqueSeRepitaElCanal() {
         val out = clean("P1 - Canal 5", "P1 - Azteca 7", "P1 - Latina", "P2 - Canal 5", "P2 - Azteca 7", "P2 - Latina")
-        assertEquals("Canal 5 · P1", out[0])
-        assertEquals("Canal 5 · P2", out[3])
+        assertEquals(listOf("Canal 5", "Azteca 7", "Latina", "Canal 5", "Azteca 7", "Latina"), out)
+    }
+
+    @Test
+    fun distinguePorPais() {
+        val out = clean("MX: ESPN", "MX: Fox", "MX: TNT", "US: ESPN", "US: Fox", "US: TNT")
+        assertEquals("ESPN · MX", out[0])
+        assertEquals("ESPN · US", out[3])
+    }
+
+    @Test
+    fun quitaP2ConSeparadoresRaros() {
+        val out = clean("P2\u00A0- Canal 5", "P2 − Azteca 7", "P2 ➤ Latina", "P2: TNT", "P2 Warner", "P2-Star")
+        assertEquals(listOf("Canal 5", "Azteca 7", "Latina", "TNT", "Warner", "Star"), out)
+    }
+
+    @Test
+    fun quitaP2AlFinal() {
+        val out = clean("Canal 5 P2", "Azteca 7 (P2)", "Latina [P2]", "TNT - P2", "Sky Sports F1")
+        assertEquals(listOf("Canal 5", "Azteca 7", "Latina", "TNT", "Sky Sports F1"), out)
+    }
+
+    @Test
+    fun respetaNumerosDeCanal() {
+        val out = clean("ESPN 2", "Fox Sports 2", "Canal 5", "A&E", "E! Entertainment", "PPV 1 - UFC", "Telemundo 51")
+        assertEquals(listOf("ESPN 2", "Fox Sports 2", "Canal 5", "A&E", "E! Entertainment", "PPV 1 - UFC", "Telemundo 51"), out)
     }
 
     @Test

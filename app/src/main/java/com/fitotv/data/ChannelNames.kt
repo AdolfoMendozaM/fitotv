@@ -9,22 +9,26 @@ package com.fitotv.data
  *   y aparece en varios canales; así "TNT - Series" o "PPV 1 - Box" se respetan.
  * - Quita al final la resolución entre paréntesis "(720p)" y notas entre corchetes que se repiten
  *   en la lista ("[Not 24/7]", "[Geo-blocked]").
- * - Si al limpiar dos canales distintos quedan con el mismo nombre, se les deja la etiqueta al final
- *   ("Canal 5 · P2") para poder distinguirlos.
+ * - También quita códigos del proveedor repetidos al final: "Canal 5 P2", "Canal 5 (P2)", "Canal 5 - P2".
+ * - Si al limpiar dos canales quedan con el mismo nombre, solo se les agrega algo que sí diga algo
+ *   ("ESPN · MX", "Canal 5 · 720p"); los códigos del proveedor (P1, P2) nunca se muestran.
  *
  * Los id no cambian (se calcularon con el nombre original), así que recientes y favoritos siguen igual.
  */
 object ChannelNames {
     // Al inicio: todo lo que no sea letra, número o el comienzo de una etiqueta [MX] (MX) 【MX】.
-    private val leadingJunk = Regex("^[^\\p{L}\\p{N}\\[(【]+")
+    private val leadingJunk = Regex("(?U)^[^\\p{L}\\p{N}\\[(【]+")
     // Al final: adornos y emojis, pero se respetan "Disney+", "¡Hola!" y cierres de paréntesis.
-    private val trailingJunk = Regex("[^\\p{L}\\p{N})\\]】+!?']+$")
-    private val bracketTag = Regex("^(\\[[^\\]]{1,14}]|\\([^)]{1,14}\\)|\\|[^|]{1,14}\\||【[^】]{1,14}】)\\s*")
-    private val codeTag = Regex("^([\\p{L}\\p{N}]{1,6})\\s*[-–—:|•»]\\s*(?=\\S)")
+    private val trailingJunk = Regex("(?U)[^\\p{L}\\p{N})\\]】+!?']+$")
+    private val bracketTag = Regex("(?U)^(\\[[^\\]]{1,14}]|\\([^)]{1,14}\\)|\\|[^|]{1,14}\\||【[^】]{1,14}】)\\s*")
+    // Clave del proveedor y un separador: cualquier símbolo ("P2 - ", "P2 ➤ ", "P2 −", "P2: ") o solo espacio.
+    private val codeTag = Regex("(?U)^([\\p{L}\\p{N}]{1,6})(\\s*[^\\p{L}\\p{N}\\s\\[(【]{1,3}\\s*|\\s+)(?=\\S)")
+    // Clave al final: "Canal 5 P2", "Canal 5 (P2)", "Canal 5 [P2]", "Canal 5 - P2".
+    private val trailingCode = Regex("(?U)(?<=\\S)\\s*(?:[-–—|•·:/]\\s*|\\s)[(\\[]?([A-Za-z]{1,3}\\d{1,3})[)\\]]?\\s*$")
     private val codeLike = Regex("^[A-Za-z]{1,3}\\d{1,3}$")
-    private val spaces = Regex("\\s{2,}")
-    private val trailingRes = Regex("\\s*\\((\\d{3,4}[pPiI]|4[kK]|UHD|FHD|HD|SD)\\)\\s*$")
-    private val trailingNote = Regex("\\s*\\[([^\\]]{1,24})]\\s*$")
+    private val spaces = Regex("(?U)\\s{2,}")
+    private val trailingRes = Regex("(?U)\\s*\\((\\d{3,4}[pPiI]|4[kK]|UHD|FHD|HD|SD)\\)\\s*$")
+    private val trailingNote = Regex("(?U)\\s*\\[([^\\]]{1,24})]\\s*$")
     private val countries = setOf(
         "MX", "MEX", "US", "USA", "ES", "ESP", "SPA", "AR", "ARG", "CO", "COL", "PE", "PER", "CL", "CHI",
         "EC", "VE", "UY", "PY", "BO", "CR", "GT", "HN", "SV", "NI", "PA", "DO", "RD", "PR", "CU", "BR",
@@ -37,16 +41,21 @@ object ChannelNames {
         // 1) Cuántas veces aparece cada etiqueta en la lista.
         val counts = HashMap<String, Int>()
         val notes = HashMap<String, Int>()
+        val tails = HashMap<String, Int>()
         channels.forEach { ch ->
             tags(ch.name).forEach { counts[it] = (counts[it] ?: 0) + 1 }
             trailingNote.find(ch.name)?.let { m -> val k = m.groupValues[1].trim().uppercase(); notes[k] = (notes[k] ?: 0) + 1 }
+            trailingCode.find(ch.name.replace(trailingJunk, ""))?.let { m ->
+                val k = m.groupValues[1].uppercase(); tails[k] = (tails[k] ?: 0) + 1
+            }
         }
         val minRepeats = if (channels.size < 10) 2 else 3
         val removable = counts.filterValues { it >= minRepeats }.keys
         val removableNotes = notes.filterValues { it >= minRepeats }.keys
+        val removableTails = tails.filterValues { it >= minRepeats }.keys
 
         // 2) Limpieza; guardamos qué etiquetas se quitaron por si hay que devolverlas.
-        val cleaned = channels.map { ch -> strip(ch.name, removable, removableNotes) }
+        val cleaned = channels.map { ch -> strip(ch.name, removable, removableNotes, removableTails) }
 
         // 3) Choques: dos canales distintos con el mismo nombre limpio.
         val byName = cleaned.indices.groupBy { cleaned[it].first.lowercase() }
@@ -54,7 +63,9 @@ object ChannelNames {
             val (name, removed) = cleaned[i]
             val clash = (byName[name.lowercase()]?.size ?: 0) > 1 &&
                 byName[name.lowercase()]!!.any { cleaned[it].second != removed }
-            val finalName = if (clash && removed.isNotEmpty()) "$name · ${removed.last()}" else name
+            // Solo se agrega lo que le dice algo a la gente (país, resolución), nunca "P2".
+            val hint = removed.lastOrNull { !codeLike.matches(it) }
+            val finalName = if (clash && hint != null) "$name · $hint" else name
             if (finalName == ch.name) ch else ch.copy(name = finalName)
         }
     }
@@ -79,12 +90,19 @@ object ChannelNames {
         }
         codeTag.find(s)?.let { m ->
             val token = m.groupValues[1]
-            if (codeLike.matches(token) || token.uppercase() in countries) return token.uppercase() to m.value.length
+            val onlySpace = m.groupValues[2].isBlank()
+            // Con solo un espacio ("P2 Canal 5") únicamente las claves tipo P2; los países necesitan símbolo.
+            if (codeLike.matches(token) || (!onlySpace && token.uppercase() in countries)) return token.uppercase() to m.value.length
         }
         return null
     }
 
-    private fun strip(raw: String, removable: Set<String>, removableNotes: Set<String>): Pair<String, List<String>> {
+    private fun strip(
+        raw: String,
+        removable: Set<String>,
+        removableNotes: Set<String>,
+        removableTails: Set<String>,
+    ): Pair<String, List<String>> {
         val removed = ArrayList<String>(2)
         var s = raw.replace(leadingJunk, "")
         repeat(3) {
@@ -106,6 +124,13 @@ object ChannelNames {
             if (res != null && s.length > res.value.length) {
                 removed += res.groupValues[1]
                 s = s.substring(0, res.range.first)
+                return@repeat
+            }
+            val t = s.replace(trailingJunk, "")
+            val tail = trailingCode.find(t)
+            if (tail != null && tail.groupValues[1].uppercase() in removableTails && t.length > tail.value.length) {
+                removed += tail.groupValues[1].uppercase()
+                s = t.substring(0, tail.range.first)
             }
         }
         s = s.replace(trailingJunk, "").replace(spaces, " ").trim()

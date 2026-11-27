@@ -54,6 +54,8 @@ sleep 1; shot 07-perfil-con-nombre
 key KEYCODE_DPAD_DOWN
 key KEYCODE_DPAD_RIGHT
 key KEYCODE_DPAD_CENTER
+sleep 0.8; shot 07b-avatares
+key KEYCODE_DPAD_DOWN
 key KEYCODE_DPAD_DOWN
 key KEYCODE_DPAD_DOWN
 shot 08-perfil-foco-continuar

@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,18 +12,24 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fitotv.ui.AppViewModel
 import com.fitotv.ui.Root
 import com.fitotv.ui.components.LocalSounds
 import com.fitotv.ui.theme.Fc
 
 class MainActivity : ComponentActivity() {
+    private val appVm: AppViewModel by viewModels()
+
+    override fun onResume() {
+        super.onResume()
+        appVm.onAppResumed()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContent {
-            val vm: AppViewModel = viewModel()
+            val vm = appVm
             BoxWithConstraints(
                 Modifier
                     .fillMaxSize()

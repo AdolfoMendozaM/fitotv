@@ -32,6 +32,9 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -43,9 +46,28 @@ import com.fitotv.ui.theme.Fc
 import com.fitotv.ui.theme.T
 import kotlinx.coroutines.delay
 
-/** Un reproductor listo para listas IPTV: HLS, MPEG-TS y archivos de video. */
+/**
+ * Un reproductor listo para listas IPTV: HLS, MPEG-TS y archivos de video.
+ *
+ * Calidad: arranca suponiendo buena conexión (10 Mbps) para empezar en HD en vez de la calidad más baja,
+ * y recuerda la velocidad medida entre canales. El búfer no cambia, así que no agrega retraso.
+ * La vista previa se limita a 720p porque se ve chica y así no le quita internet al canal grande.
+ */
 @OptIn(UnstableApi::class)
-class FitoPlayer(context: Context, muted: Boolean) {
+class FitoPlayer(context: Context, muted: Boolean, preview: Boolean = false) {
+
+    companion object {
+        @Volatile
+        private var meter: DefaultBandwidthMeter? = null
+
+        /** Uno para toda la app: lo que aprende de tu internet sirve para el siguiente canal. */
+        fun bandwidthMeter(context: Context): DefaultBandwidthMeter = meter ?: synchronized(this) {
+            meter ?: DefaultBandwidthMeter.Builder(context.applicationContext)
+                .setInitialBitrateEstimate(10_000_000L)
+                .build()
+                .also { meter = it }
+        }
+    }
 
     private val dataSource = OkHttpDataSource.Factory(Http.client).setUserAgent(Http.USER_AGENT)
 
@@ -62,9 +84,20 @@ class FitoPlayer(context: Context, muted: Boolean) {
         val load = DefaultLoadControl.Builder()
             .setBufferDurationsMs(12_000, 50_000, 1_200, 2_500)
             .build()
+        // Sube a mejor calidad tras 5 s estables (por defecto son 10) y usa 75 % del ancho medido.
+        val adaptive = AdaptiveTrackSelection.Factory(
+            5_000,
+            AdaptiveTrackSelection.DEFAULT_MAX_DURATION_FOR_QUALITY_DECREASE_MS,
+            AdaptiveTrackSelection.DEFAULT_MIN_DURATION_TO_RETAIN_AFTER_DISCARD_MS,
+            0.75f,
+        )
+        val selector = DefaultTrackSelector(context, adaptive)
+        if (preview) selector.setParameters(selector.buildUponParameters().setMaxVideoSize(1280, 720))
         exo = ExoPlayer.Builder(context)
             .setMediaSourceFactory(sources)
             .setLoadControl(load)
+            .setTrackSelector(selector)
+            .setBandwidthMeter(bandwidthMeter(context))
             .build()
         if (muted) exo.volume = 0f
     }
@@ -128,7 +161,7 @@ fun VideoSurface(player: FitoPlayer, modifier: Modifier = Modifier, zoom: Boolea
 @Composable
 fun LivePreview(channel: Channel?, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val player = remember { FitoPlayer(context, muted = false) }
+    val player = remember { FitoPlayer(context, muted = false, preview = true) }
     var state by remember { mutableIntStateOf(0) } // 0 cargando, 1 se ve, 2 no responde
     DisposableEffect(Unit) {
         val listener = object : Player.Listener {

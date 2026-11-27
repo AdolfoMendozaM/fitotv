@@ -10,16 +10,29 @@ enum class ListKind { URL, FILE, XTREAM }
 @Serializable
 enum class ContentKind { LIVE, MOVIE, SERIES }
 
-/** Los cinco avatares que vienen con la app. */
+/** Los avatares que vienen con la app (personajes originales). En pantalla no llevan nombre. */
 enum class AvatarId(val key: String, val label: String) {
-    AUDIFONOS("audifonos", "Avatar con audífonos"),
-    PELO_LARGO("pelo_largo", "Avatar de pelo largo con aretes"),
-    GORRA("gorra", "Avatar con gorra"),
-    CHONGO("chongo", "Avatar con chongo y lentes"),
-    COLETAS("coletas", "Avatar infantil con coletas");
+    NINA("nina", "Niña con trenzas y moños"),
+    NINO("nino", "Niño con sudadera roja"),
+    CHAVA("chava", "Chava con audífonos"),
+    CHAVO("chavo", "Chavo con gorra"),
+    MAMA("mama", "Mamá con trenzas y aretes"),
+    PAPA("papa", "Papá con barba y guayabera"),
+    ABUELA("abuela", "Abuelita con lentes y rebozo"),
+    ABUELO("abuelo", "Abuelito con sombrero"),
+    PERRITO("perrito", "Perrito con paliacate"),
+    GATITO("gatito", "Gatito con cascabel"),
+    AJOLOTE("ajolote", "Ajolote"),
+    XOLO("xolo", "Xoloitzcuintle"),
+    JAGUAR("jaguar", "Jaguarcito");
 
     companion object {
-        fun of(key: String?): AvatarId = entries.firstOrNull { it.key == key } ?: AUDIFONOS
+        /** Los perfiles hechos con los avatares anteriores pasan al más parecido. */
+        private val legacy = mapOf(
+            "audifonos" to CHAVA, "pelo_largo" to MAMA, "gorra" to CHAVO, "chongo" to ABUELA, "coletas" to NINA,
+        )
+
+        fun of(key: String?): AvatarId = entries.firstOrNull { it.key == key } ?: legacy[key] ?: NINA
     }
 }
 

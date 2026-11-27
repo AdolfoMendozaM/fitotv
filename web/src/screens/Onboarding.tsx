@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { AVATARS } from '../data/models';
+import { AVATARS, avatarKey } from '../data/models';
 import { back, createProfile, data, deleteProfile, go, replaceAll, startSession, updateProfile } from '../data/store';
 import { Avatar, Brand, I, Icon, useIsPhone } from '../ui/kit';
 import { sfx } from '../ui/sound';
@@ -38,10 +38,10 @@ function Illustration({ step }: { step: number }) {
   }
   if (step === 1) {
     const people = [
-      ['audifonos', 'Fito'],
-      ['pelo_largo', 'Mamá'],
-      ['chongo', 'Abuela'],
-      ['coletas', 'Peques'],
+      ['papa', 'Fito'],
+      ['mama', 'Mamá'],
+      ['abuela', 'Abuela'],
+      ['nina', 'Peques'],
     ];
     return (
       <div class="row" style={{ gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -49,7 +49,7 @@ function Illustration({ step }: { step: number }) {
           <div key={n} class="col a-pop" style={{ animationDelay: `${0.1 + i * 0.07}s`, alignItems: 'center', gap: 8 }}>
             <Avatar k={a} size={84} />
             <strong>{n}</strong>
-            {a === 'coletas' && <span style={{ color: 'var(--menta)', fontSize: 13 }}>Solo infantil</span>}
+            {a === 'nina' && <span style={{ color: 'var(--menta)', fontSize: 13 }}>Solo infantil</span>}
           </div>
         ))}
       </div>
@@ -166,7 +166,7 @@ export function TutorialScreen() {
 export function CreateProfileScreen({ firstTime, editId }: { firstTime: boolean; editId?: string }) {
   const editing = data.value.profiles.find((p) => p.id === editId);
   const [name, setName] = useState(editing?.name ?? '');
-  const [avatar, setAvatar] = useState(editing?.avatar ?? 'audifonos');
+  const [avatar, setAvatar] = useState(editing ? avatarKey(editing.avatar) : AVATARS[0].key);
   const [kids, setKids] = useState(editing?.kids ?? false);
   const [confirm, setConfirm] = useState(false);
   const phone = useIsPhone();

@@ -207,11 +207,19 @@ fun ProgressBar(fraction: Float, width: Dp, height: Dp = 6.dp, color: Color = Fc
 }
 
 fun avatarRes(key: String?): Int = when (AvatarId.of(key)) {
-    AvatarId.AUDIFONOS -> R.drawable.avatar_audifonos
-    AvatarId.PELO_LARGO -> R.drawable.avatar_pelo_largo
-    AvatarId.GORRA -> R.drawable.avatar_gorra
-    AvatarId.CHONGO -> R.drawable.avatar_chongo
-    AvatarId.COLETAS -> R.drawable.avatar_coletas
+    AvatarId.NINA -> R.drawable.avatar_nina
+    AvatarId.NINO -> R.drawable.avatar_nino
+    AvatarId.CHAVA -> R.drawable.avatar_chava
+    AvatarId.CHAVO -> R.drawable.avatar_chavo
+    AvatarId.MAMA -> R.drawable.avatar_mama
+    AvatarId.PAPA -> R.drawable.avatar_papa
+    AvatarId.ABUELA -> R.drawable.avatar_abuela
+    AvatarId.ABUELO -> R.drawable.avatar_abuelo
+    AvatarId.PERRITO -> R.drawable.avatar_perrito
+    AvatarId.GATITO -> R.drawable.avatar_gatito
+    AvatarId.AJOLOTE -> R.drawable.avatar_ajolote
+    AvatarId.XOLO -> R.drawable.avatar_xolo
+    AvatarId.JAGUAR -> R.drawable.avatar_jaguar
 }
 
 @Composable

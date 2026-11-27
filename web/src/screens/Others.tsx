@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
 import type { Channel } from '../data/models';
-import { AVATARS } from '../data/models';
+import { AVATARS, avatarKey } from '../data/models';
 import {
   activeList,
   back,
@@ -288,17 +288,17 @@ export function MeScreen() {
         <span class="muted" style={{ fontSize: 14 }}>
           Toca un avatar para cambiar el tuyo
         </span>
-        <div class="row" style={{ gap: 10, marginTop: 6 }}>
+        <div class="row" style={{ gap: 10, marginTop: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
           {AVATARS.map((a) => (
             <button
               key={a.key}
               aria-label={a.label}
-              aria-pressed={a.key === p.avatar}
+              aria-pressed={a.key === avatarKey(p.avatar)}
               onClick={() => {
                 updateProfile(p.id, p.name, a.key, p.kids);
                 sfx('tick');
               }}
-              style={{ borderRadius: '50%', padding: 2, boxShadow: a.key === p.avatar ? '0 0 0 3px var(--menta)' : 'none' }}
+              style={{ borderRadius: '50%', padding: 2, boxShadow: a.key === avatarKey(p.avatar) ? '0 0 0 3px var(--menta)' : 'none' }}
             >
               <Avatar k={a.key} size={phone ? 46 : 54} />
             </button>

@@ -33,8 +33,8 @@ import com.fitotv.ui.theme.T
 import kotlinx.coroutines.delay
 
 /**
- * Ventana que aparece sola cuando hay una versión nueva: "Actualizar ahora" la baja y abre
- * el instalador; "Después" la cierra (sigue disponible en Ajustes → Actualizar FitoTV).
+ * Ventana obligatoria que aparece sola cuando hay una versión nueva: "Actualizar ahora" la baja y
+ * abre el instalador. No se cierra con Atrás; solo si la descarga falla deja seguir por ahora.
  */
 @Composable
 fun UpdateDialog(vm: AppViewModel) {
@@ -42,8 +42,8 @@ fun UpdateDialog(vm: AppViewModel) {
     val density = LocalDensity.current
     val sounds = LocalSounds.current
     Dialog(
-        onDismissRequest = { if (vm.updateProgress == null) vm.dismissUpdatePrompt() },
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        onDismissRequest = {},
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false),
     ) {
         // La ventana es aparte: le pasamos la misma escala de diseño y los sonidos de la app.
         CompositionLocalProvider(LocalDensity provides density, LocalSounds provides sounds) {
@@ -84,12 +84,16 @@ fun UpdateDialog(vm: AppViewModel) {
                 }
                 Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     PrimaryButton(
-                        if (prog != null) "Descargando…" else "Actualizar ahora",
+                        when {
+                            prog != null -> "Descargando…"
+                            vm.updateFailed -> "Intentar de nuevo"
+                            else -> "Actualizar ahora"
+                        },
                         onClick = { vm.installUpdate() },
                         icon = Icons.REFRESH,
                         focusRequester = fr,
                     )
-                    if (prog == null) SecondaryButton("Después", onClick = { vm.dismissUpdatePrompt() })
+                    if (prog == null && vm.updateFailed) SecondaryButton("Seguir por ahora", onClick = { vm.postponeUpdate() })
                 }
             }
         }
