@@ -166,7 +166,20 @@ export function AddListScreen({ firstTime }: { firstTime: boolean }) {
         {httpWarn && (
           <div class="row" style={{ gap: 12, padding: 14, borderRadius: 14, background: 'rgba(255,197,61,.12)', color: 'var(--ambar)', fontSize: 14, lineHeight: 1.45 }}>
             <Icon d={I.warn} size={20} stroke={2.6} />
-            <span>Esta dirección empieza con http://. Los navegadores no dejan abrirla desde una página segura; prueba con https:// o súbela como archivo.</span>
+            <span>
+              Esta dirección empieza con http://. Los navegadores no dejan abrirla desde una página segura (con candado).{' '}
+              {import.meta.env.VITE_HOME ? (
+                <>
+                  Ábrela en{' '}
+                  <a href={import.meta.env.VITE_HOME as string} style={{ color: 'inherit', fontWeight: 700 }}>
+                    {(import.meta.env.VITE_HOME as string).replace(/^http:\/\//, '').replace(/\/$/, '')}
+                  </a>
+                  , ahí sí funciona.
+                </>
+              ) : (
+                'Prueba con https:// o súbela como archivo.'
+              )}
+            </span>
           </div>
         )}
         {tab !== 'XTREAM' && (
