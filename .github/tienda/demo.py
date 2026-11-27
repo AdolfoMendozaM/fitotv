@@ -31,18 +31,26 @@ VOD = 'https://download.blender.org/durian/trailer/sintel_trailer-480p.mp4'
 
 # (número, nombre, grupo, colores del logo, programas)
 CHANNELS = [
-    (1, 'Altamar Noticias', 'Noticias', ('#1E5BFF', '#FFFFFF'), ['Noticiero de la mañana', 'Mesa de análisis', 'Clima y tránsito', 'Edición estelar', 'Reportajes', 'Noticias de la noche']),
-    (2, 'Canal Ciudad', 'Noticias', ('#FF5A36', '#FFFFFF'), ['Buenos días, ciudad', 'Entrevista abierta', 'Ciudad en vivo', 'Barrios', 'Resumen del día']),
-    (3, 'Deporte Total', 'Deportes', ('#12B76A', '#0B1B3F'), ['Gol a gol', 'Liga regional: semifinal', 'Vestidor', 'Ciclismo de montaña', 'Resumen deportivo']),
-    (4, 'Arena 24', 'Deportes', ('#F5B400', '#0B1B3F'), ['Box: noche de campeones', 'Tenis: cuartos de final', 'Charla técnica', 'Clásicos del estadio']),
-    (5, 'Cocina Viva', 'Estilo de vida', ('#FF7A00', '#FFFFFF'), ['Desayunos rápidos', 'Antojitos de la abuela', 'Postres sin horno', 'Cocina de mercado', 'Cena en 20 minutos']),
-    (6, 'Rutas y Sabores', 'Estilo de vida', ('#00A3A3', '#FFFFFF'), ['Oaxaca en tres días', 'Mercados del mundo', 'Pueblos con encanto', 'Carretera al mar']),
-    (7, 'Cine Clásico', 'Cine y series', ('#B42318', '#FFE8A3'), ['Función de matiné', 'El faro del norte', 'Ciclo de comedia', 'Noche de suspenso']),
-    (8, 'Estreno Plus', 'Cine y series', ('#7A5AF8', '#FFFFFF'), ['La última estación', 'Serie: Barrio Alto', 'Detrás de cámaras', 'Maratón de verano']),
-    (9, 'Planeta Kids', 'Infantil', ('#EE46BC', '#FFFFFF'), ['Los exploradores', 'Ciencia divertida', 'Cuentos animados', 'Dibujemos juntos', 'Hora de dormir']),
-    (10, 'Mundo Animal', 'Cultura', ('#3B7A57', '#FFFFFF'), ['Selva en vivo', 'Océanos', 'Grandes migraciones', 'Rescate animal']),
-    (11, 'Ciencia Hoy', 'Cultura', ('#0BA5EC', '#0B1B3F'), ['El universo en un minuto', 'Inventos', 'Laboratorio abierto', 'Preguntas al cielo']),
-    (12, 'Música 24', 'Música', ('#101828', '#3DE0BE'), ['Éxitos de hoy', 'Sesiones acústicas', 'Clásicos en español', 'Conciertos']),
+    (1, 'Cocina Viva', 'Entretenimiento', ('#FF7A00', '#FFFFFF'), ['Desayunos rápidos', 'Antojitos de la abuela', 'Postres sin horno', 'Cocina de mercado', 'Cena en 20 minutos']),
+    (2, 'Rutas y Sabores', 'Entretenimiento', ('#00A3A3', '#FFFFFF'), ['Oaxaca en tres días', 'Mercados del mundo', 'Pueblos con encanto', 'Carretera al mar']),
+    (3, 'Cine Clásico', 'Entretenimiento', ('#B42318', '#FFE8A3'), ['Función de matiné', 'El faro del norte', 'Ciclo de comedia', 'Noche de suspenso']),
+    (4, 'Estreno Plus', 'Entretenimiento', ('#7A5AF8', '#FFFFFF'), ['La última estación', 'Barrio Alto', 'Detrás de cámaras', 'Maratón de verano']),
+    (5, 'Mundo Animal', 'Entretenimiento', ('#3B7A57', '#FFFFFF'), ['Selva en vivo', 'Océanos', 'Grandes migraciones', 'Rescate animal']),
+    (6, 'Ciencia Hoy', 'Entretenimiento', ('#0BA5EC', '#0B1B3F'), ['El universo en un minuto', 'Inventos', 'Laboratorio abierto', 'Preguntas al cielo']),
+    (7, 'Música 24', 'Entretenimiento', ('#101828', '#3DE0BE'), ['Éxitos de hoy', 'Sesiones acústicas', 'Clásicos en español', 'Conciertos']),
+    (8, 'Risas TV', 'Entretenimiento', ('#FFD000', '#0B1B3F'), ['Comedia en vivo', 'Bromas en la calle', 'Stand-up', 'Sketches']),
+    (9, 'Hogar y Jardín', 'Entretenimiento', ('#65A30D', '#FFFFFF'), ['Remodela tu sala', 'Huerto en casa', 'Ideas con poco', 'Plantas fáciles']),
+    (10, 'Rumbo Viajero', 'Entretenimiento', ('#0E7490', '#FFFFFF'), ['Mochila al hombro', 'Playas escondidas', 'Ciudades de noche', 'Rutas del café']),
+    (11, 'Altamar Noticias', 'Noticias', ('#1E5BFF', '#FFFFFF'), ['Noticiero de la mañana', 'Mesa de análisis', 'Clima y tránsito', 'Edición estelar', 'Reportajes', 'Noticias de la noche']),
+    (12, 'Canal Ciudad', 'Noticias', ('#FF5A36', '#FFFFFF'), ['Buenos días, ciudad', 'Entrevista abierta', 'Ciudad en vivo', 'Barrios', 'Resumen del día']),
+    (13, 'Hoy en 24', 'Noticias', ('#475467', '#FFFFFF'), ['Titulares', 'Economía al día', 'Mundo hoy', 'Cierre informativo']),
+    (14, 'Deporte Total', 'Deportes', ('#12B76A', '#0B1B3F'), ['Gol a gol', 'Liga regional: semifinal', 'Vestidor', 'Ciclismo de montaña', 'Resumen deportivo']),
+    (15, 'Arena 24', 'Deportes', ('#F5B400', '#0B1B3F'), ['Box: noche de campeones', 'Tenis: cuartos de final', 'Charla técnica', 'Clásicos del estadio']),
+    (16, 'Cancha Abierta', 'Deportes', ('#16A34A', '#FFFFFF'), ['Previa del partido', 'Fútbol femenil', 'Goles de la semana', 'Análisis táctico']),
+    (17, 'Pista Motor', 'Deportes', ('#DC2626', '#FFFFFF'), ['Rally de montaña', 'Autos clásicos', 'Motos en pista', 'Taller abierto']),
+    (18, 'Planeta Kids', 'Infantil', ('#EE46BC', '#FFFFFF'), ['Los exploradores', 'Ciencia divertida', 'Cuentos animados', 'Dibujemos juntos', 'Hora de dormir']),
+    (19, 'Cuentos TV', 'Infantil', ('#F97316', '#FFFFFF'), ['Había una vez', 'Fábulas', 'Canciones para cantar', 'Teatro de títeres']),
+    (20, 'Mini Genios', 'Infantil', ('#8B5CF6', '#FFFFFF'), ['Números divertidos', 'Experimentos', 'Letras y sonidos', 'Arte con papel']),
 ]
 
 MOVIES = [

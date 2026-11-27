@@ -5,7 +5,7 @@ set -u
 OUT=tienda
 mkdir -p "$OUT"
 PKG=com.fitotv.app.dev
-APK=app/build/outputs/apk/github/debug/app-github-debug.apk
+APK=app/build/outputs/apk/amazon/debug/app-amazon-debug.apk
 
 shot() { adb exec-out screencap -p > "$OUT/$1.png"; echo "captura $1"; }
 key() { adb shell input keyevent "$@"; sleep 0.8; }
@@ -48,9 +48,8 @@ sleep 12
 key KEYCODE_DPAD_CENTER
 sleep 14; shot 01-inicio
 
-# Canales del primer grupo y uno enfocado (vista previa con video).
-key KEYCODE_DPAD_DOWN
-key KEYCODE_DPAD_DOWN
+# Al llegar, el foco está en el primer canal. Uno a la derecha para otra vista previa.
+key KEYCODE_DPAD_RIGHT
 sleep 10; shot 02-inicio-canales
 
 # Ver un canal y cambiar con ▲ para que salga el cartel del canal.
@@ -61,21 +60,16 @@ sleep 3; shot 03b-reproductor-cambio
 key KEYCODE_BACK
 sleep 6; shot 04-inicio-recientes
 
-# Guía
-for i in 1 2 3 4 5 6 7 8; do key KEYCODE_DPAD_LEFT; done
-for i in 1 2 3 4 5 6 7 8 9 10; do key KEYCODE_DPAD_UP; done
-key KEYCODE_DPAD_DOWN
-key KEYCODE_DPAD_DOWN
-key KEYCODE_DPAD_CENTER
+# Menú: desde Ajustes (lo más abajo) se sube a Guía y Películas.
+menu_desde_ajustes() {
+  for i in 1 2 3 4 5 6 7 8; do key KEYCODE_DPAD_LEFT; done
+  for i in 1 2 3 4 5 6 7 8 9 10; do key KEYCODE_DPAD_DOWN; done
+  for i in $(seq 1 "$1"); do key KEYCODE_DPAD_UP; done
+  key KEYCODE_DPAD_CENTER
+}
+menu_desde_ajustes 4
 sleep 10; shot 06-guia
-
-# Películas
-for i in 1 2 3 4 5 6 7 8; do key KEYCODE_DPAD_LEFT; done
-for i in 1 2 3 4 5 6 7 8 9 10; do key KEYCODE_DPAD_UP; done
-key KEYCODE_DPAD_DOWN
-key KEYCODE_DPAD_DOWN
-key KEYCODE_DPAD_DOWN
-key KEYCODE_DPAD_CENTER
+menu_desde_ajustes 3
 sleep 6; shot 07-peliculas
 
 # Saludo al volver a abrir

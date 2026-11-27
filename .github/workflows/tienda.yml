@@ -24,7 +24,7 @@ jobs:
       - name: Armar versión de prueba
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :app:assembleGithubDebug
+          ./gradlew --no-daemon :app:assembleAmazonDebug
 
       - name: Herramientas para la lista de ejemplo
         run: pip install --quiet pillow
