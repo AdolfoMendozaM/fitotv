@@ -141,20 +141,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun loadActive() {
         val list = activeList()
         if (list == null) {
-            setChannels(emptyList())
+            applyChannels(emptyList())
             epg = emptyMap()
             return
         }
         loading = true
         val all = repo.channels(list.id)
-        setChannels(all)
+        applyChannels(all)
         epg = epgRepo.load(list.id)
         val last = profileData().lastGroup[list.id]
         selectedGroup = groups.firstOrNull { it.name == last }?.name ?: groups.firstOrNull()?.name
         loading = false
     }
 
-    private fun setChannels(all: List<Channel>) {
+    private fun applyChannels(all: List<Channel>) {
         val kids = profile()?.kids == true
         val visible = if (kids) all.filter { isKidsGroup(it.group) } else all
         channels = visible
@@ -169,7 +169,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             when (val r = repo.refresh(list)) {
                 is RefreshResult.Ok -> {
-                    setChannels(repo.channels(list.id))
+                    applyChannels(repo.channels(list.id))
                     if (selectedGroup == null || groups.none { it.name == selectedGroup }) selectedGroup = groups.firstOrNull()?.name
                     when {
                         r.newLive > 0 -> toast = Toast(
