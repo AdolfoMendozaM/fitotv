@@ -54,9 +54,10 @@ sleep 10; shot 02-inicio-canales
 
 # Ver un canal y cambiar con ▲ para que salga el cartel del canal.
 key KEYCODE_DPAD_CENTER
-sleep 10; shot 03-reproductor
+sleep 2.5; shot 03-reproductor-cartel
+sleep 8; shot 03b-reproductor
 key KEYCODE_DPAD_UP
-sleep 3; shot 03b-reproductor-cambio
+sleep 2.5; shot 03c-reproductor-cambio
 key KEYCODE_BACK
 sleep 6; shot 04-inicio-recientes
 
@@ -76,7 +77,8 @@ sleep 6; shot 07-peliculas
 adb shell am force-stop "$PKG"
 sleep 1
 adb shell am start -n "$PKG/com.fitotv.MainActivity"
-sleep 3.5; shot 08-hola
+sleep 2.2; shot 08-hola
+sleep 0.8; shot 08b-hola
 
 adb logcat -d > "$OUT/logcat.txt"
 grep -E "FATAL EXCEPTION" "$OUT/logcat.txt" && echo "La app se cerró sola" || echo "Sin cierres inesperados."

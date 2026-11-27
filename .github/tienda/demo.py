@@ -24,8 +24,6 @@ FONT_SEMI = os.path.join(ROOT, 'app/src/main/res/font/jakarta_bold.ttf')
 STREAMS = [
     'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
     'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-    'https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
-    'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8',
 ]
 VOD = 'https://download.blender.org/durian/trailer/sintel_trailer-480p.mp4'
 
@@ -93,22 +91,35 @@ def logo(name, colors, path):
 
 
 def poster(title, color, path):
-    W, H = 640, 360
+    # Vertical, como los pósters de verdad (2:3), con el título abajo en una o dos líneas.
+    W, H = 400, 600
     base = Image.new('RGB', (W, H), color)
     d = ImageDraw.Draw(base)
     rnd = random.Random(title)
-    for _ in range(14):
-        x, y, r = rnd.randint(-80, W), rnd.randint(-80, H), rnd.randint(40, 180)
+    for _ in range(16):
+        x, y, r = rnd.randint(-80, W), rnd.randint(-80, H), rnd.randint(50, 200)
         shade = tuple(min(255, int(int(color[i:i + 2], 16) * rnd.uniform(0.6, 1.6))) for i in (1, 3, 5))
         d.ellipse([x - r, y - r, x + r, y + r], fill=shade)
     grad = Image.new('L', (1, H))
     for yy in range(H):
-        grad.putpixel((0, yy), int(230 * max(0, (yy - H * 0.35) / (H * 0.65))))
-    shade = Image.new('RGB', (W, H), (10, 23, 71))
-    base = Image.composite(shade, base, grad.resize((W, H)))
+        grad.putpixel((0, yy), int(235 * max(0, (yy - H * 0.45) / (H * 0.55))))
+    base = Image.composite(Image.new('RGB', (W, H), (10, 23, 71)), base, grad.resize((W, H)))
     d = ImageDraw.Draw(base)
-    f = ImageFont.truetype(FONT_BOLD, 58)
-    d.text((36, H - 100), title, font=f, fill='white')
+    words = title.split()
+    lines, cur = [], ''
+    f = ImageFont.truetype(FONT_BOLD, 50)
+    for w in words:
+        test = (cur + ' ' + w).strip()
+        if d.textlength(test, font=f) <= W - 56:
+            cur = test
+        else:
+            lines.append(cur)
+            cur = w
+    lines.append(cur)
+    y = H - 40 - 56 * len(lines)
+    for ln in lines:
+        d.text((28, y), ln, font=f, fill='white')
+        y += 56
     base.save(path)
 
 
