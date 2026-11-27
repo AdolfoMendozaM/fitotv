@@ -182,6 +182,7 @@ fun ChannelCard(
     onFocus: () -> Unit,
     modifier: Modifier = Modifier,
     favorite: Boolean = false,
+    showGroup: Boolean = true,
     focusRequester: FocusRequester? = null,
 ) {
     FocusBox(onClick = onClick, onFocus = onFocus, focusRequester = focusRequester, modifier = modifier.height(124.dp)) { f ->
@@ -197,7 +198,8 @@ fun ChannelCard(
                 T(ch.name, size = 15.sp, weight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 if (favorite) T("★", size = 14.sp, color = Fc.Menta)
             }
-            T(now?.title ?: ch.group, size = 14.sp, color = Fc.Muted2, maxLines = 2, lineHeight = 19.sp)
+            val sub = now?.title ?: if (showGroup) ch.group else if (ch.kind != com.fitotv.data.ContentKind.LIVE) typeLabel(ch.kind) else ""
+            T(sub, size = 14.sp, color = Fc.Muted2, maxLines = 2, lineHeight = 19.sp)
             Box(Modifier.weight(1f))
             if (now != null) {
                 Box(

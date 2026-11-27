@@ -265,7 +265,9 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
                             ch,
                             epgFor(vm.epg, ch).first,
                             onClick = { playLive(ch, gridChannels) },
-                            onFocus = { hero = HeroItem.Live(ch); compact = true },
+                            // Sin recientes arriba, la primera fila de canales aún cabe con todo el encabezado.
+                            onFocus = { hero = HeroItem.Live(ch); compact = r >= 1 || firstSection != 3 },
+                            showGroup = false,
                             modifier = Modifier.weight(1f),
                             favorite = ch.id in favorites,
                             focusRequester = if (r == 0 && i == 0 && firstSection == 3) firstFr else null,

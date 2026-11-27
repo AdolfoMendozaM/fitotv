@@ -4,15 +4,29 @@ import android.content.Context
 import android.graphics.Color
 import android.view.ViewGroup
 import androidx.annotation.OptIn
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -24,6 +38,9 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.fitotv.data.Channel
 import com.fitotv.data.Http
+import com.fitotv.ui.components.ChannelLogo
+import com.fitotv.ui.theme.Fc
+import com.fitotv.ui.theme.T
 import kotlinx.coroutines.delay
 
 /** Un reproductor listo para listas IPTV: HLS, MPEG-TS y archivos de video. */
@@ -92,6 +109,7 @@ fun VideoSurface(player: FitoPlayer, modifier: Modifier = Modifier, zoom: Boolea
                 layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 useController = false
                 setShutterBackgroundColor(Color.TRANSPARENT)
+                setBackgroundColor(Color.TRANSPARENT)
                 setKeepContentOnPlayerReset(false)
                 resizeMode = if (zoom) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
                 isFocusable = false
@@ -104,19 +122,53 @@ fun VideoSurface(player: FitoPlayer, modifier: Modifier = Modifier, zoom: Boolea
 
 /**
  * Vista previa sin sonido del canal enfocado. Espera un momento antes de cargar
- * para no abrir cada canal por el que pasas rápido.
+ * para no abrir cada canal por el que pasas rápido. Mientras carga (o si el canal
+ * no responde) se ve el logo del canal en lugar de un cuadro negro.
  */
 @Composable
 fun LivePreview(channel: Channel?, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val player = remember { FitoPlayer(context, muted = true) }
-    DisposableEffect(Unit) { onDispose { player.release() } }
+    var state by remember { mutableIntStateOf(0) } // 0 cargando, 1 se ve, 2 no responde
+    DisposableEffect(Unit) {
+        val listener = object : Player.Listener {
+            override fun onRenderedFirstFrame() {
+                state = 1
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                state = 2
+            }
+        }
+        player.exo.addListener(listener)
+        onDispose {
+            player.exo.removeListener(listener)
+            player.release()
+        }
+    }
     LaunchedEffect(channel?.id) {
+        state = 0
         player.stop()
         if (channel != null) {
             delay(700)
             player.play(channel)
         }
     }
-    VideoSurface(player, modifier, zoom = true)
+    Box(modifier) {
+        VideoSurface(player, Modifier.fillMaxSize(), zoom = true)
+        if (channel != null && state != 1) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Fc.S3),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    ChannelLogo(channel.name, channel.logo, 76.dp, corner = 18.dp, fontSize = 22f)
+                    Spacer(Modifier.height(12.dp))
+                    T(if (state == 2) "Sin vista previa por ahora" else "Cargando vista previa…", size = 14.sp, color = Fc.Muted)
+                }
+            }
+        }
+    }
 }
