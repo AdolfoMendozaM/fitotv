@@ -240,12 +240,23 @@ export function Player({ channel, withSound, phone, onCast }: Props) {
   );
 }
 
+/** Plan B cuando el canal no se puede mandar directo: duplicar la pantalla. */
+function mirrorTip(): string {
+  const ua = navigator.userAgent;
+  if (/Android/i.test(ua)) return 'Este canal no se puede mandar directo a la tele. Usa “Transmitir pantalla” en el menú rápido de tu celular (desliza desde arriba).';
+  if (/iP(hone|ad|od)/.test(ua)) return 'Este canal no se puede mandar directo a la tele. Usa “Duplicar pantalla” en el Centro de control.';
+  return 'Este canal no se puede mandar directo a la tele. En Chrome abre el menú ⋮ y elige “Transmitir…” para mandar la pestaña.';
+}
+
 /** Hoja para transmitir: AirPlay (Safari) o Chromecast (Chrome). La lista de teles la da el navegador. */
 export function CastSheet({ video, channel, onClose }: { video: HTMLVideoElement; channel: Channel | null; onClose: () => void }) {
   const opts = castOptions(video);
+  const [note, setNote] = useState('');
   const go = async (k: 'airplay' | 'remote') => {
-    await castTo(video, k);
-    onClose();
+    const r = await castTo(video, k);
+    if (r === 'ok') onClose();
+    else if (r === 'none') setNote('No encontramos teles con Chromecast en tu Wi-Fi. Revisa que la tele esté prendida y en la misma red.');
+    else if (r === 'unsupported') setNote(mirrorTip());
   };
   return (
     <div class="sheet-back" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -287,9 +298,15 @@ export function CastSheet({ video, channel, onClose }: { video: HTMLVideoElement
             </p>
           )}
         </div>
-        <p class="hint" style={{ margin: '16px 0' }}>
-          ¿No ves tu tele? Revisa que esté prendida y conectada al mismo Wi-Fi.
-        </p>
+        {note ? (
+          <p class="hint" role="status" style={{ margin: '16px 0', color: 'var(--text)' }}>
+            {note}
+          </p>
+        ) : (
+          <p class="hint" style={{ margin: '16px 0' }}>
+            ¿No ves tu tele? Revisa que esté prendida y conectada al mismo Wi-Fi.
+          </p>
+        )}
         <button class="btn btn-secondary btn-block" onClick={onClose}>
           Cancelar
         </button>

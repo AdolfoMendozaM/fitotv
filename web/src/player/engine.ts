@@ -29,7 +29,7 @@ const looksTs = (url: string) => {
 
 /**
  * Conecta un canal al <video>. Llama a onProblem si no se puede ver.
- * HLS: nativo en Safari/iPhone, hls.js en los demás. MPEG-TS: mpegts.js donde exista.
+ * HLS: el reproductor del navegador si lo tiene, si no hls.js. MPEG-TS: mpegts.js donde exista.
  */
 export async function attach(video: HTMLVideoElement, ch: Channel, onProblem: (p: PlayProblem) => void, startAt = 0): Promise<Engine> {
   const url = ch.url;
@@ -56,10 +56,9 @@ export async function attach(video: HTMLVideoElement, ch: Channel, onProblem: (p
   }
 
   const nativeHls = video.canPlayType('application/vnd.apple.mpegurl') !== '';
-  // En iPhone y iPad usamos el reproductor de Safari (así AirPlay funciona directo).
+  // iPhone y iPad: siempre el reproductor de Safari.
   const apple = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const onVideoError = () => {
-    if (destroyed) return;
+  const reportNative = () => {
     const code = video.error?.code;
     if (code === MediaError.MEDIA_ERR_NETWORK) onProblem('offline');
     else if (code === MediaError.MEDIA_ERR_DECODE) onProblem('format');
@@ -67,25 +66,41 @@ export async function attach(video: HTMLVideoElement, ch: Channel, onProblem: (p
     else onProblem(looksHls(url) ? 'blocked' : 'format');
   };
 
-  const playNative = () => {
-    video.addEventListener('error', onVideoError);
-    cleanups.push(() => video.removeEventListener('error', onVideoError));
+  /** Reproductor propio del navegador. Si falla antes de arrancar y hay plan B, lo usa. */
+  const playNative = (fallback?: () => void) => {
+    let started = false;
+    const onStart = () => {
+      started = true;
+    };
+    const onError = () => {
+      if (destroyed) return;
+      if (!started && fallback) {
+        cleanupNative();
+        video.removeAttribute('src');
+        video.load();
+        fallback();
+        return;
+      }
+      reportNative();
+    };
+    const cleanupNative = () => {
+      video.removeEventListener('error', onError);
+      video.removeEventListener('loadeddata', onStart);
+    };
+    video.addEventListener('error', onError);
+    video.addEventListener('loadeddata', onStart);
+    cleanups.push(cleanupNative);
     video.src = url;
     if (startAt > 0) video.currentTime = startAt / 1000;
     void video.play().catch(() => undefined);
   };
 
-  if (looksHls(url)) {
-    if (nativeHls && apple) {
-      playNative();
-      return engine;
-    }
+  const playHlsJs = async () => {
     const { default: Hls } = await import('hls.js');
-    if (destroyed) return engine;
+    if (destroyed) return;
     if (!Hls.isSupported()) {
-      if (nativeHls) playNative();
-      else onProblem('format');
-      return engine;
+      onProblem('format');
+      return;
     }
     const hls = new Hls({ lowLatencyMode: false, backBufferLength: 30, startPosition: startAt > 0 ? startAt / 1000 : -1 });
     cleanups.push(() => hls.destroy());
@@ -104,6 +119,16 @@ export async function attach(video: HTMLVideoElement, ch: Channel, onProblem: (p
     hls.loadSource(url);
     hls.attachMedia(video);
     hls.on(Hls.Events.MANIFEST_PARSED, () => void video.play().catch(() => undefined));
+  };
+
+  if (looksHls(url)) {
+    // Primero el reproductor del navegador cuando lo tiene: no le pide permisos al proveedor
+    // y deja mandar el canal a la tele (AirPlay o Chromecast). Si no arranca, entra hls.js.
+    if (nativeHls) {
+      playNative(apple ? undefined : () => void playHlsJs());
+      return engine;
+    }
+    await playHlsJs();
     return engine;
   }
 
@@ -148,19 +173,23 @@ export function castOptions(video: HTMLVideoElement | null) {
   };
 }
 
-export async function castTo(video: HTMLVideoElement, kind: 'airplay' | 'remote'): Promise<boolean> {
+export type CastResult = 'ok' | 'cancel' | 'none' | 'unsupported';
+
+export async function castTo(video: HTMLVideoElement, kind: 'airplay' | 'remote'): Promise<CastResult> {
   const v = video as AirPlayVideo & RemoteVideo;
-  try {
-    if (kind === 'airplay' && v.webkitShowPlaybackTargetPicker) {
-      v.webkitShowPlaybackTargetPicker();
-      return true;
-    }
-    if (kind === 'remote' && v.remote) {
-      await v.remote.prompt();
-      return true;
-    }
-  } catch {
-    /* la persona cerró la ventana o no hay teles cerca */
+  if (kind === 'airplay') {
+    if (!v.webkitShowPlaybackTargetPicker) return 'unsupported';
+    v.webkitShowPlaybackTargetPicker();
+    return 'ok';
   }
-  return false;
+  if (!v.remote) return 'unsupported';
+  try {
+    await v.remote.prompt();
+    return 'ok';
+  } catch (e) {
+    const name = (e as DOMException).name;
+    if (name === 'NotFoundError') return 'none';
+    if (name === 'NotSupportedError' || name === 'InvalidStateError') return 'unsupported';
+    return 'cancel';
+  }
 }

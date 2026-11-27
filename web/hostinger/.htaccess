@@ -1,0 +1,24 @@
+# FitoTV, versión sin candado.
+# Esta copia se abre con http:// para que los canales y listas http se puedan ver.
+# Si alguien entra con https://, lo regresamos a http:// (los navegadores lo aceptan y lo recuerdan).
+Options -Indexes
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} on
+  RewriteRule ^ http://%{HTTP_HOST}%{REQUEST_URI} [R=302,L]
+</IfModule>
+
+AddType application/manifest+json .webmanifest
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "no-referrer"
+  <FilesMatch "\.(png|wav|svg)$">
+    Header set Cache-Control "public, max-age=86400"
+  </FilesMatch>
+  <FilesMatch "^(index\.html|sw\.js|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

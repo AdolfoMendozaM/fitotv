@@ -30,6 +30,24 @@ function httpMessage(code: number): string {
   return `El servidor respondió con un error (${code}).`;
 }
 
+// En la versión sin candado (tu dominio) hay un intermediario para leer listas y guías
+// cuando el proveedor no deja leerlas desde páginas web. Solo texto: el video nunca pasa por ahí.
+const PROXY = import.meta.env.VITE_PROXY as string | undefined;
+
+async function viaProxy(url: string, signal?: AbortSignal): Promise<Response> {
+  const res = await fetch(`${import.meta.env.BASE_URL}${PROXY}`, {
+    method: 'POST',
+    body: new URLSearchParams({ u: url }),
+    signal,
+    cache: 'no-store',
+  });
+  const why = res.headers.get('X-FitoTV-Error');
+  if (why === 'unreachable') throw new FriendlyError('No pudimos conectarnos con el servidor de la lista. Revisa la dirección o intenta en un momento.');
+  if (why === 'too-big') throw new FriendlyError('La lista es demasiado grande para abrirla aquí. Usa la app de tele.');
+  if (why) throw new FriendlyError('Esa dirección no se puede abrir desde aquí. Revisa que sea la de tu lista.');
+  return res;
+}
+
 /** Descarga un texto (lista o guía), descomprimiendo si viene en .gz. */
 export async function fetchText(url: string, signal?: AbortSignal): Promise<string> {
   if (isSecurePage() && isHttp(url)) {
@@ -43,11 +61,24 @@ export async function fetchText(url: string, signal?: AbortSignal): Promise<stri
     res = await fetch(url, { signal, cache: 'no-store' });
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw e;
+    if (PROXY) {
+      try {
+        res = await viaProxy(url, signal);
+      } catch (e2) {
+        if (e2 instanceof FriendlyError || (e2 as Error).name === 'AbortError') throw e2;
+        throw new FriendlyError('No pudimos abrir esta lista. Revisa tu internet o intenta en un momento.');
+      }
+      return readBody(res);
+    }
     throw new FriendlyError(
       'El navegador no pudo abrir esta lista. Puede que el proveedor no deje leerla desde páginas web, o que no haya internet. ' +
         'Puedes subirla como archivo o usar la app de tele.',
     );
   }
+  return readBody(res);
+}
+
+async function readBody(res: Response): Promise<string> {
   if (!res.ok) throw new FriendlyError(httpMessage(res.status));
   const buf = new Uint8Array(await res.arrayBuffer());
   if (buf[0] === 0x1f && buf[1] === 0x8b && typeof DecompressionStream !== 'undefined') {
