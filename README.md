@@ -53,7 +53,7 @@ https://github.com/AdolfoMendozaM/fitotv/releases/latest/download/FitoTV.apk
 
 Cada versión nueva se instala encima de la anterior y conserva perfiles, listas y recientes. Para actualizar, repite el paso 4.
 
-> Para no escribir el enlace completo con el control, puedes crear un código corto de Downloader en [aftvnews.com/downloader](https://www.aftvnews.com/downloader/) con el enlace de arriba. Como el enlace nunca cambia, el código sirve para todas las versiones.
+> Para no escribir el enlace completo con el control, crea un código numérico con el acortador de AFTVnews (aftv.news) usando el enlace de arriba; en Downloader solo se teclea el número. Como el enlace nunca cambia, el mismo código sirve para todas las versiones.
 
 ## Firma del instalable
 
