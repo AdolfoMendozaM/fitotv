@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import com.fitotv.ui.components.ToastHost
+import com.fitotv.ui.components.UpdateDialog
 import com.fitotv.ui.screens.AddListScreen
 import com.fitotv.ui.screens.CatalogScreen
 import com.fitotv.ui.screens.CreateProfileScreen
@@ -53,6 +54,12 @@ fun Root(vm: AppViewModel) {
         }
         if (vm.revealing) RevealOverlay(onDone = { vm.revealing = false })
         ToastHost(vm.toast, onDone = { vm.toast = null })
+        // Versión nueva: ventana emergente en las pantallas principales, nunca encima de un canal.
+        val main = when (vm.screen) {
+            Screen.Home, Screen.Guide, Screen.Lists, Screen.Groups, Screen.Search, Screen.Settings, is Screen.Catalog -> true
+            else -> false
+        }
+        if (vm.updatePrompt && vm.update != null && main && !vm.revealing) UpdateDialog(vm)
     }
 }
 

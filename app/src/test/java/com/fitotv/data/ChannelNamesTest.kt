@@ -29,6 +29,12 @@ class ChannelNamesTest {
     }
 
     @Test
+    fun quitaEmojisDelProveedor() {
+        val out = clean("🟢 P2 - Warner Bros TV", "🟢 P2 - TNT", "🟢 P2 - Star Channel", "⭐ Disney+ ⭐")
+        assertEquals(listOf("Warner Bros TV", "TNT", "Star Channel", "Disney+"), out)
+    }
+
+    @Test
     fun quitaAdornos() {
         assertEquals(listOf("ESPN 2 HD"), clean("★ ESPN 2 HD ★"))
     }

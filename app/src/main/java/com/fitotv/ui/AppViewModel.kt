@@ -134,22 +134,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Mensaje para Ajustes cuando algo pide un paso tuyo. */
     var updateMsg by mutableStateOf<String?>(null)
         private set
+    /** Ventana emergente "Hay una versión nueva" (se muestra fuera del reproductor). */
+    var updatePrompt by mutableStateOf(false)
+        private set
+
+    fun dismissUpdatePrompt() {
+        updatePrompt = false
+        updateMsg = null
+    }
 
     /** Revisa en silencio una vez por arranque; a mano desde Ajustes avisa también si estás al día. */
     fun checkUpdate(manual: Boolean = false) {
         // La versión de Amazon se actualiza por la tienda.
         if (!com.fitotv.BuildConfig.SELF_UPDATE) return
+        // Las versiones de prueba (emulador) solo revisan cuando se pide en Ajustes.
+        if (!manual && com.fitotv.BuildConfig.DEBUG) return
         if (!manual && updateChecked) return
         updateChecked = true
         viewModelScope.launch {
             if (!manual) kotlinx.coroutines.delay(8_000)
             val info = updater.check()
             update = info
-            toast = when {
-                info != null -> Toast("Hay una versión nueva de FitoTV", "Ve a Ajustes y elige Actualizar FitoTV para instalar la ${info.versionName}.")
-                manual -> Toast("FitoTV está al día", "Tienes la versión más nueva (${com.fitotv.BuildConfig.VERSION_NAME}).")
-                else -> toast
-            }
+            if (info != null) updatePrompt = true
+            else if (manual) toast = Toast("FitoTV está al día", "Tienes la versión más nueva (${com.fitotv.BuildConfig.VERSION_NAME}).")
         }
     }
 
@@ -174,6 +181,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val file = ready ?: updater.download(info) { p -> viewModelScope.launch { updateProgress = p } }
                 updateFile = file
                 updater.install(file)
+                updatePrompt = false
             } catch (e: Exception) {
                 updateMsg = "No se pudo bajar la actualización. Revisa tu internet e intenta de nuevo."
             } finally {

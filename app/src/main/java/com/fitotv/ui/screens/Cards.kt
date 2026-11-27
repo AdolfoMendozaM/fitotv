@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,6 +32,7 @@ import com.fitotv.data.ContentKind
 import com.fitotv.data.EpgRepository
 import com.fitotv.data.Programme
 import com.fitotv.data.RecentItem
+import com.fitotv.ui.components.ChannelArt
 import com.fitotv.ui.components.ChannelLogo
 import com.fitotv.ui.components.FocusBox
 import com.fitotv.ui.components.Gap
@@ -175,8 +177,8 @@ fun RecentChannelCard(
 }
 
 /**
- * Tarjeta de canal: número y logo arriba, nombre hasta en dos líneas y,
- * si hay guía, lo que está pasando con su barra de avance.
+ * Tarjeta de canal: número arriba a la izquierda, el logo grande al centro en su propio espacio
+ * (nunca encima del número ni del nombre) y el nombre abajo. Si hay guía, una barrita de avance al pie.
  */
 @Composable
 fun ChannelCard(
@@ -191,32 +193,46 @@ fun ChannelCard(
 ) {
     FocusBox(onClick = onClick, onFocus = onFocus, focusRequester = focusRequester, modifier = modifier.height(124.dp)) { f ->
         Box(Modifier.fillMaxSize()) {
-            Column(
+            Row(
                 Modifier
-                    .fillMaxSize()
-                    .padding(start = 14.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, top = 7.dp, end = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(Modifier.fillMaxWidth().height(36.dp), verticalAlignment = Alignment.CenterVertically) {
-                    T(
-                        if (ch.num > 0) ch.num.toString() else "",
-                        size = 24.sp,
-                        display = true,
-                        color = if (f) Color.White else Fc.Num,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (favorite) T("★", size = 14.sp, color = Fc.Menta, modifier = Modifier.padding(end = 8.dp))
-                    ChannelLogo(ch.name, ch.logo, width = 64.dp, height = 36.dp, corner = 8.dp, fontSize = 12f)
-                }
-                T(ch.name, size = 15.sp, weight = FontWeight.SemiBold, maxLines = 2, lineHeight = 18.sp)
-                val sub = now?.title ?: if (showGroup) ch.group else if (ch.kind != ContentKind.LIVE) typeLabel(ch.kind) else ""
-                if (sub.isNotBlank()) T(sub, size = 13.sp, color = Fc.Muted2, lineHeight = 16.sp)
+                T(
+                    if (ch.num > 0) ch.num.toString() else "",
+                    size = 18.sp,
+                    display = true,
+                    color = if (f) Color.White else Fc.Num,
+                    modifier = Modifier.weight(1f),
+                )
+                if (favorite) T("★", size = 14.sp, color = Fc.Menta)
             }
+            ChannelArt(
+                ch.name,
+                ch.logo,
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 30.dp, start = 28.dp, end = 28.dp)
+                    .fillMaxWidth()
+                    .height(56.dp),
+            )
+            T(
+                if (showGroup && ch.kind != ContentKind.LIVE) "${ch.name} · ${typeLabel(ch.kind)}" else ch.name,
+                size = 15.sp,
+                weight = FontWeight.SemiBold,
+                align = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(start = 10.dp, end = 10.dp, bottom = if (now != null) 13.dp else 10.dp),
+            )
             if (now != null) {
                 Box(
                     Modifier
                         .align(Alignment.BottomStart)
-                        .padding(start = 14.dp, end = 12.dp, bottom = 6.dp)
+                        .padding(start = 14.dp, end = 14.dp, bottom = 6.dp)
                         .fillMaxWidth()
                         .height(3.dp)
                         .clip(RoundedCornerShape(2.dp))

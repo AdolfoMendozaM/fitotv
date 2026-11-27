@@ -9,7 +9,7 @@ APK=app/build/outputs/apk/github/debug/app-github-debug.apk
 LISTA="${FITOTV_LISTA_PRUEBA:-}"
 
 # Lista de prueba parecida a las de los proveedores: los canales de México de iptv-org
-# con la etiqueta "≡P2 - " delante del nombre, servida desde la compu del recorrido.
+# con "🟢 P2 - " delante del nombre (como llegan de algunos proveedores), servida desde la compu del recorrido.
 if [ -z "$LISTA" ]; then
   mkdir -p /tmp/lista
   curl -s -m 40 https://iptv-org.github.io/iptv/countries/mx.m3u | PYTHONIOENCODING=utf-8 python3 -c '
@@ -18,7 +18,7 @@ for line in sys.stdin:
     line = line.rstrip("\n")
     if line.startswith("#EXTINF") and "," in line:
         head, name = line.rsplit(",", 1)
-        line = head + ",≡P2 - " + name
+        line = head + ",🟢 P2 - " + name
     print(line)
 ' > /tmp/lista/lista.m3u
   echo "lista de prueba: $(grep -c '^#EXTINF' /tmp/lista/lista.m3u) canales"
@@ -102,6 +102,12 @@ for i in 1 2 3 4 5 6 7 8; do key KEYCODE_DPAD_LEFT; done
 for i in 1 2 3 4 5 6 7 8 9 10; do key KEYCODE_DPAD_DOWN; done
 key KEYCODE_DPAD_CENTER
 sleep 4; shot 20c-ajustes
+# "Acerca de" (último renglón) busca actualizaciones: debe salir la ventana emergente.
+for i in 1 2 3 4; do key KEYCODE_DPAD_DOWN; done
+key KEYCODE_DPAD_CENTER
+sleep 5; shot 20d-ventana-actualizar
+key KEYCODE_BACK
+sleep 1.5; shot 20e-ajustes-con-actualizar
 key KEYCODE_BACK
 sleep 2
 

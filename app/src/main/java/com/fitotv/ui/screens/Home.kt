@@ -435,8 +435,8 @@ private fun Hero(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Ico(Icons.MUTE, 16.dp, Fc.Text)
-                T(if (item is HeroItem.Vod) typeLabel(item.ch.kind) else "Vista previa sin sonido", size = 14.sp, weight = FontWeight.SemiBold)
+                Ico(if (item is HeroItem.Vod) Icons.FILM else Icons.SOUND, 16.dp, Fc.Text)
+                T(if (item is HeroItem.Vod) typeLabel(item.ch.kind) else "Vista previa", size = 14.sp, weight = FontWeight.SemiBold)
             }
         }
     }

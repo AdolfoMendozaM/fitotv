@@ -283,6 +283,36 @@ fun ChannelLogo(name: String, logo: String, width: Dp, height: Dp, corner: Dp = 
     }
 }
 
+/**
+ * Logo grande sin placa, para las tarjetas de canal: ocupa todo su espacio sin deformarse.
+ * Mientras no carga (o si falla) se ven las iniciales sobre el color del canal.
+ */
+@Composable
+fun ChannelArt(name: String, logo: String, modifier: Modifier = Modifier) {
+    var loaded by remember(logo) { mutableStateOf(false) }
+    Box(modifier, contentAlignment = Alignment.Center) {
+        if (!loaded) {
+            Box(
+                Modifier
+                    .size(78.dp, 46.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Fc.tileFor(name)),
+                contentAlignment = Alignment.Center,
+            ) { T(initials(name), size = 17.sp, weight = FontWeight.Bold, letterSpacing = (-0.2).sp) }
+        }
+        if (logo.isNotBlank()) {
+            AsyncImage(
+                model = logo,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                onSuccess = { loaded = true },
+                onError = { loaded = false },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
 /** Fondo neutro detrás de los logos: deja ver logos claros y de color sobre el azul. */
 private val LogoPlate = Color(0x30FFFFFF)
 

@@ -3,7 +3,7 @@ package com.fitotv.data
 /**
  * Limpia los nombres que traen las listas para que quepan en pantalla.
  *
- * - Quita adornos al inicio y al final (≡ ★ | • …).
+ * - Quita adornos al inicio y al final: emojis (🟢 ⭐), símbolos (≡ ★ | •) y espacios.
  * - Quita etiquetas del proveedor que se repiten en muchos canales: "P2 - ", "MX: ", "[LAT] ".
  *   Una etiqueta solo se quita si parece código (letras con número, país o va entre corchetes)
  *   y aparece en varios canales; así "TNT - Series" o "PPV 1 - Box" se respetan.
@@ -15,9 +15,10 @@ package com.fitotv.data
  * Los id no cambian (se calcularon con el nombre original), así que recientes y favoritos siguen igual.
  */
 object ChannelNames {
-    private const val JUNK = "\\s≡☰★☆✪✦●○◉◆◇♦■□▪▫▶►▸»›|┃¦•·~*#=_>:\\-–—"
-    private val leadingJunk = Regex("^[$JUNK]+")
-    private val trailingJunk = Regex("[$JUNK]+$")
+    // Al inicio: todo lo que no sea letra, número o el comienzo de una etiqueta [MX] (MX) 【MX】.
+    private val leadingJunk = Regex("^[^\\p{L}\\p{N}\\[(【]+")
+    // Al final: adornos y emojis, pero se respetan "Disney+", "¡Hola!" y cierres de paréntesis.
+    private val trailingJunk = Regex("[^\\p{L}\\p{N})\\]】+!?']+$")
     private val bracketTag = Regex("^(\\[[^\\]]{1,14}]|\\([^)]{1,14}\\)|\\|[^|]{1,14}\\||【[^】]{1,14}】)\\s*")
     private val codeTag = Regex("^([\\p{L}\\p{N}]{1,6})\\s*[-–—:|•»]\\s*(?=\\S)")
     private val codeLike = Regex("^[A-Za-z]{1,3}\\d{1,3}$")

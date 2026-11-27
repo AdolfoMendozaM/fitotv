@@ -121,14 +121,14 @@ fun VideoSurface(player: FitoPlayer, modifier: Modifier = Modifier, zoom: Boolea
 }
 
 /**
- * Vista previa sin sonido del canal enfocado. Espera un momento antes de cargar
+ * Vista previa (con sonido) del canal enfocado. Espera un momento antes de cargar
  * para no abrir cada canal por el que pasas rápido. Mientras carga (o si el canal
  * no responde) se ve el logo del canal en lugar de un cuadro negro.
  */
 @Composable
 fun LivePreview(channel: Channel?, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val player = remember { FitoPlayer(context, muted = true) }
+    val player = remember { FitoPlayer(context, muted = false) }
     var state by remember { mutableIntStateOf(0) } // 0 cargando, 1 se ve, 2 no responde
     DisposableEffect(Unit) {
         val listener = object : Player.Listener {
@@ -164,7 +164,7 @@ fun LivePreview(channel: Channel?, modifier: Modifier = Modifier) {
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    ChannelLogo(channel.name, channel.logo, 76.dp, corner = 18.dp, fontSize = 22f)
+                    ChannelLogo(channel.name, channel.logo, width = 128.dp, height = 76.dp, corner = 18.dp, fontSize = 22f)
                     Spacer(Modifier.height(12.dp))
                     T(if (state == 2) "Sin vista previa por ahora" else "Cargando vista previa…", size = 14.sp, color = Fc.Muted)
                 }
