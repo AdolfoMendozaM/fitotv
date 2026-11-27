@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="Rail" extends="Group">
+    <interface>
+        <field id="current" type="string" value="inicio" onChange="render" />
+        <field id="focusIndex" type="integer" value="1" onChange="paint" />
+        <field id="hasFocus" type="boolean" value="false" onChange="paint" />
+        <field id="avatar" type="string" value="nina" onChange="render" />
+    </interface>
+    <script type="text/brightscript" uri="pkg:/source/util.brs" />
+    <script type="text/brightscript" uri="pkg:/source/ui.brs" />
+    <script type="text/brightscript" uri="Rail.brs" />
+</component>

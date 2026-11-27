@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="CatalogScreen" extends="BaseScreen">
+    <interface>
+        <function name="onKeyboardText" />
+    </interface>
+    <script type="text/brightscript" uri="pkg:/source/util.brs" />
+    <script type="text/brightscript" uri="pkg:/source/ui.brs" />
+    <script type="text/brightscript" uri="pkg:/components/RailNav.brs" />
+    <script type="text/brightscript" uri="CatalogScreen.brs" />
+</component>

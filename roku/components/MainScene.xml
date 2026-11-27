@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="MainScene" extends="Scene">
+    <interface>
+        <field id="exitApp" type="boolean" value="false" />
+        <field id="listStatus" type="assocarray" />
+        <field id="dataVersion" type="integer" value="0" />
+        <function name="getState" />
+        <function name="go" />
+        <function name="back" />
+        <function name="reset" />
+        <function name="createProfile" />
+        <function name="updateProfile" />
+        <function name="deleteProfile" />
+        <function name="startSession" />
+        <function name="addList" />
+        <function name="setActiveList" />
+        <function name="removeList" />
+        <function name="refreshActive" />
+        <function name="setGroup" />
+        <function name="getGroup" />
+        <function name="play" />
+        <function name="recordRecent" />
+        <function name="recents" />
+        <function name="isFav" />
+        <function name="toggleFav" />
+        <function name="favorites" />
+        <function name="setSound" />
+        <function name="playSfx" />
+        <function name="search" />
+        <function name="finishOnboarding" />
+        <function name="channelNode" />
+        <function name="toast" />
+        <function name="quit" />
+        <function name="goTab" />
+        <function name="forgetRecent" />
+        <function name="liveGroups" />
+    </interface>
+    <script type="text/brightscript" uri="pkg:/source/util.brs" />
+    <script type="text/brightscript" uri="pkg:/source/ui.brs" />
+    <script type="text/brightscript" uri="MainScene.brs" />
+    <children>
+        <Rectangle id="bg" width="1920" height="1080" color="0x0A1747FF" />
+        <Group id="root" />
+        <Group id="toastLayer" />
+    </children>
+</component>

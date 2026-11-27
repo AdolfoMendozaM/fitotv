@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="EpgTask" extends="Task">
+    <interface>
+        <field id="config" type="assocarray" />
+        <field id="request" type="assocarray" />
+        <field id="result" type="assocarray" />
+        <field id="state" type="string" value="none" />
+    </interface>
+    <script type="text/brightscript" uri="pkg:/source/util.brs" />
+    <script type="text/brightscript" uri="EpgTask.brs" />
+</component>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="PairServer" extends="Task">
+    <interface>
+        <field id="address" type="string" />
+        <field id="received" type="assocarray" />
+        <field id="stopNow" type="boolean" value="false" />
+    </interface>
+    <script type="text/brightscript" uri="pkg:/source/util.brs" />
+    <script type="text/brightscript" uri="PairServer.brs" />
+</component>

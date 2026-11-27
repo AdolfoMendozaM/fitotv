@@ -12,6 +12,8 @@ on:
       - ".github/workflows/emulador.yml"
       - ".github/tienda/**"
       - ".github/scripts/**"
+      - "roku/**"
+      - ".github/workflows/roku.yml"
   pull_request:
   workflow_dispatch:
 
