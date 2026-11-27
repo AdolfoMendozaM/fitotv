@@ -311,20 +311,105 @@ function xtreamStreamId(url as string) as string
 end function
 
 ' ------------------------------------------------------------------ M3U
-function classify(url as string, group as string) as string
+' Qué es cada entrada: en vivo, película o serie.
+' Primero lo que diga la lista (tvg-type), luego el enlace y al final el grupo y el nombre.
+function classify(url as string, group as string, name = "" as string, typ = "" as string) as string
     q = Instr(1, url, "?")
     path = LCase(url)
     if q > 0 then path = LCase(Left(url, q - 1))
-    g = LCase(group)
+    g = fold(group)
+    n = fold(name)
+    t = LCase(typ.Trim())
+    if t = "movie" or t = "movies" or t = "vod" or t = "film" then return "MOVIE"
+    if t = "series" or t = "serie" or t = "tvshow" or t = "show" then return "SERIES"
+    if t = "live" or t = "tv" then return "LIVE"
     if Instr(1, path, "/series/") > 0 then return "SERIES"
     if Instr(1, path, "/movie/") > 0 or Instr(1, path, "/movies/") > 0 then return "MOVIE"
     for each ext in [".mp4", ".mkv", ".avi", ".mov", ".m4v", ".wmv", ".webm"]
         if Right(path, Len(ext)) = ext then
-            if Instr(1, g, "serie") > 0 then return "SERIES"
+            if Instr(1, g, "serie") > 0 or looksLikeEpisode(n) then return "SERIES"
             return "MOVIE"
         end if
     end for
+    ' Enlaces típicos de tele en vivo
+    if Instr(1, path, "/live/") > 0 or Right(path, 3) = ".ts" then return "LIVE"
+    ' Sin pistas en el enlace: grupos tipo "Movies / Hindi / 2026" o "Series 2024".
+    ' Un grupo "Películas" a secas puede ser de canales en vivo, por eso se pide además un año
+    ' o un capítulo en el nombre.
+    vodGroup = hasAny(g, ["movie", "pelicula", "vod"])
+    seriesGroup = hasAny(g, ["serie", "tv show", "tvshow", "temporada", "season"])
+    ep = looksLikeEpisode(n)
+    if ep and (seriesGroup or vodGroup) then return "SERIES"
+    if seriesGroup and (hasYear(g) or hasYear(n)) then return "SERIES"
+    if vodGroup and (hasYear(g) or hasYear(n)) then return "MOVIE"
     return "LIVE"
+end function
+
+' ¿Trae un año suelto entre 1900 y 2099?
+function hasYear(s as string) as boolean
+    sl = Len(s)
+    i = 1
+    while i <= sl - 3
+        y = Mid(s, i, 4)
+        if isDigits(y) and (Left(y, 2) = "19" or Left(y, 2) = "20") then
+            okBefore = i = 1
+            if not okBefore then okBefore = not isDigits(Mid(s, i - 1, 1))
+            okAfter = i + 4 > sl
+            if not okAfter then okAfter = not isDigits(Mid(s, i + 4, 1))
+            if okBefore and okAfter then return true
+        end if
+        i = i + 1
+    end while
+    return false
+end function
+
+' S01E02, S1 E2, 1x02, "Temporada", "Capítulo"... (el texto ya viene en minúsculas)
+function looksLikeEpisode(n as string) as boolean
+    if hasAny(n, ["temporada", "capitulo", "episodio", "episode", "season "]) then return true
+    sl = Len(n)
+    for i = 1 to sl
+        ch = Mid(n, i, 1)
+        if ch = "s" or ch = "t" then
+            before = i = 1
+            if not before then before = not isWordChar(Mid(n, i - 1, 1))
+            if before then
+                j = i + 1
+                while j <= sl and isDigits(Mid(n, j, 1))
+                    j = j + 1
+                end while
+                if j > i + 1 then
+                    k = j
+                    while k <= sl and (Mid(n, k, 1) = " " or Mid(n, k, 1) = "." or Mid(n, k, 1) = "-" or Mid(n, k, 1) = ":")
+                        k = k + 1
+                    end while
+                    if k <= sl and Mid(n, k, 1) = "e" then
+                        k2 = k + 1
+                        while k2 <= sl and isDigits(Mid(n, k2, 1))
+                            k2 = k2 + 1
+                        end while
+                        if k2 > k + 1 then return true
+                    end if
+                end if
+            end if
+        else if ch = "x" and i > 1 and i < sl then
+            if isDigits(Mid(n, i - 1, 1)) and isDigits(Mid(n, i + 1, 1)) then
+                a = i - 1
+                while a > 1 and isDigits(Mid(n, a - 1, 1))
+                    a = a - 1
+                end while
+                b = i + 1
+                while b < sl and isDigits(Mid(n, b + 1, 1))
+                    b = b + 1
+                end while
+                okA = a = 1
+                if not okA then okA = not isWordChar(Mid(n, a - 1, 1))
+                okB = b = sl
+                if not okB then okB = not isWordChar(Mid(n, b + 1, 1))
+                if okA and okB and (b - i) = 2 and (i - a) <= 2 then return true
+            end if
+        end if
+    end for
+    return false
 end function
 
 function m3uAttributes(line as string) as object
@@ -424,7 +509,13 @@ function parseM3U(text as string, useMd5 = true as boolean) as object
             if pendAttrs.DoesExist("group-title") then group = pendAttrs["group-title"]
             group = group.Trim()
             if group = "" then group = "Sin grupo"
-            kind = classify(line, group)
+            typ = ""
+            if pendAttrs.DoesExist("tvg-type") then
+                typ = pendAttrs["tvg-type"]
+            else if pendAttrs.DoesExist("type") then
+                typ = pendAttrs["type"]
+            end if
+            kind = classify(line, group, name, typ)
             num = 0
             if kind = "LIVE" then
                 liveNum = liveNum + 1

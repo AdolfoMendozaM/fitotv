@@ -450,11 +450,14 @@ function recents(p as object) as dynamic
     if l = invalid or m.profileId = "" then return out
     d = pdOf(m.profileId)
     for each r in d.recents
-        live = r.kind = "LIVE"
-        want = (p.kind = "LIVE" and live) or (p.kind = "VOD" and not live)
-        if want and r.listId = l.id then
+        if r.listId = l.id then
             n = channelNode({id: r.id})
+            want = false
             if n <> invalid then
+                live = n.kind = "LIVE"
+                want = (p.kind = "LIVE" and live) or (p.kind = "VOD" and not live)
+            end if
+            if want then
                 a = nodeToAA(n)
                 a.posSec = r.posSec
                 a.dur = r.dur

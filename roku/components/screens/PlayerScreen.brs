@@ -70,24 +70,14 @@ sub startChannel(id as string)
     m.pendingId = invalid
     m.epgProgs = invalid
     m.paused = false
+    m.lastError = invalid
     uiClear(m.errorG)
-    v = CreateObject("roSGNode", "ContentNode")
-    v.url = n.url
-    v.streamFormat = n.streamFormat
-    v.title = n.title
-    v.live = not m.isVod
-    if m.isVod and m.resume > 5 then v.PlayStart = m.resume
+    m.formats = formatsFor(n)
+    m.fmtIdx = 0
+    m.startAt = 0
+    if m.isVod and m.resume > 5 then m.startAt = m.resume
     m.resume = 0
-    ha = CreateObject("roHttpAgent")
-    ha.SetCertificatesFile("common:/certs/ca-bundle.crt")
-    ha.InitClientCertificates()
-    ua = userAgent()
-    if n.ua <> invalid and n.ua <> "" then ua = n.ua
-    ha.AddHeader("User-Agent", ua)
-    if n.ref <> invalid and n.ref <> "" then ha.AddHeader("Referer", n.ref)
-    m.video.setHttpAgent(ha)
-    m.video.content = v
-    m.video.control = "play"
+    loadContent()
     showLoading(true)
     if m.isVod then
         m.saveTimer.control = "start"
@@ -98,12 +88,44 @@ sub startChannel(id as string)
     showBanner()
 end sub
 
+' Formatos a probar. Si el enlace no dice qué es (sin .m3u8, .mp4...), en películas y
+' series se prueba HLS, luego MP4 y luego MKV antes de dar el error.
+function formatsFor(n as object) as object
+    u = LCase(n.url)
+    q = Instr(1, u, "?")
+    if q > 0 then u = Left(u, q - 1)
+    known = n.streamFormat <> "hls" or Instr(1, u, ".m3u8") > 0
+    if known or not m.isVod then return [n.streamFormat]
+    return ["hls", "mp4", "mkv"]
+end function
+
+sub loadContent()
+    n = m.ch
+    v = CreateObject("roSGNode", "ContentNode")
+    v.url = n.url
+    v.streamFormat = m.formats[m.fmtIdx]
+    v.title = n.title
+    v.live = not m.isVod
+    if m.startAt > 5 then v.PlayStart = m.startAt
+    ha = CreateObject("roHttpAgent")
+    ha.SetCertificatesFile("common:/certs/ca-bundle.crt")
+    ha.InitClientCertificates()
+    ua = userAgent()
+    if n.ua <> invalid and n.ua <> "" then ua = n.ua
+    ha.AddHeader("User-Agent", ua)
+    if n.ref <> invalid and n.ref <> "" then ha.AddHeader("Referer", n.ref)
+    m.video.setHttpAgent(ha)
+    m.video.content = v
+    m.video.control = "play"
+end sub
+
 sub retry()
     if m.ch = invalid then return
     uiClear(m.errorG)
     showLoading(true)
     m.video.control = "stop"
-    m.video.control = "play"
+    m.fmtIdx = 0
+    loadContent()
 end sub
 
 sub onState()
@@ -120,6 +142,12 @@ sub onState()
         m.paused = true
         if m.isVod then showBanner()
     else if s = "error" then
+        m.lastError = m.video.errorCode.ToStr() + " " + m.video.errorStr
+        if m.fmtIdx < m.formats.Count() - 1 then
+            m.fmtIdx = m.fmtIdx + 1
+            loadContent()
+            return
+        end if
         showLoading(false)
         if not m.isVod and m.retries < 1 then
             m.retries = m.retries + 1
@@ -165,6 +193,8 @@ sub showError()
     if m.isVod then hint = "Presiona OK para intentar otra vez o Atrás para salir."
     uiLabel(g, hint, 0, 270, 27, c.muted2, "regular", 1000, 2, "center")
     uiLabel(g, m.ch.title, 0, 340, 23, c.dim, "medium", 1000, 1, "center")
+    ' detalle técnico chiquito, para saber qué pasó si alguien manda foto
+    if m.lastError <> invalid then uiLabel(g, "Detalle: " + m.lastError, 0, 380, 19, "0x5C6FB0FF", "regular", 1000, 2, "center")
 end sub
 
 ' ------------------------------------------------------------------ guía del canal
