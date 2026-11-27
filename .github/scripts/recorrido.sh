@@ -5,7 +5,7 @@ set -u
 OUT=recorrido
 mkdir -p "$OUT"
 PKG=com.fitotv.app.dev
-APK=app/build/outputs/apk/debug/app-debug.apk
+APK=app/build/outputs/apk/github/debug/app-github-debug.apk
 LISTA="${FITOTV_LISTA_PRUEBA:-}"
 
 # Lista de prueba parecida a las de los proveedores: los canales de México de iptv-org

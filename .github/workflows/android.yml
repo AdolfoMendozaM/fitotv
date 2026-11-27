@@ -8,6 +8,10 @@ on:
       - "web/**"
       - ".github/workflows/web.yml"
       - ".github/workflows/hostinger.yml"
+      - ".github/workflows/tienda.yml"
+      - ".github/workflows/emulador.yml"
+      - ".github/tienda/**"
+      - ".github/scripts/**"
   pull_request:
   workflow_dispatch:
 
@@ -38,7 +42,7 @@ jobs:
       - name: Probar el lector de listas
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :app:testDebugUnitTest
+          ./gradlew --no-daemon :app:testGithubDebugUnitTest
 
       - name: Revisar que esté la llave de firma
         if: github.event_name != 'pull_request'
@@ -56,13 +60,15 @@ jobs:
           FITOTV_KEYSTORE_PASSWORD: ${{ secrets.FITOTV_KEYSTORE_PASSWORD }}
           FITOTV_KEY_ALIAS: ${{ secrets.FITOTV_KEY_ALIAS }}
           FITOTV_KEY_PASSWORD: ${{ secrets.FITOTV_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon :app:assembleRelease
+        run: ./gradlew --no-daemon :app:assembleGithubRelease :app:assembleAmazonRelease
 
       - name: Ponerle nombre
         run: |
-          cp app/build/outputs/apk/release/app-release.apk "FitoTV-${FITOTV_VERSION_NAME}.apk"
+          cp app/build/outputs/apk/github/release/app-github-release.apk "FitoTV-${FITOTV_VERSION_NAME}.apk"
           # Copia con nombre fijo: así el enlace "latest/download/FitoTV.apk" siempre baja la más nueva.
-          cp app/build/outputs/apk/release/app-release.apk FitoTV.apk
+          cp app/build/outputs/apk/github/release/app-github-release.apk FitoTV.apk
+          # Versión para subir a la tienda de Amazon (se actualiza por la tienda).
+          cp app/build/outputs/apk/amazon/release/app-amazon-release.apk FitoTV-amazon.apk
           # La app lee este archivo para saber si hay versión nueva (Ajustes → Actualizar FitoTV).
           python3 - <<'PY'
           import json, os
@@ -78,7 +84,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: FitoTV-${{ env.FITOTV_VERSION_NAME }}
-          path: FitoTV-*.apk
+          path: |
+            FitoTV-*.apk
+            FitoTV.apk
 
       - name: Publicar la versión
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
@@ -87,10 +95,12 @@ jobs:
           tag_name: v${{ env.FITOTV_VERSION_NAME }}
           name: FitoTV ${{ env.FITOTV_VERSION_NAME }}
           files: |
-            FitoTV-*.apk
+            FitoTV-${{ env.FITOTV_VERSION_NAME }}.apk
             FitoTV.apk
+            FitoTV-amazon.apk
             version.json
           body: |
-            Instalable para Google TV, Android TV y Fire TV.
+            FitoTV.apk: instalable para Google TV, Android TV y Fire TV (Downloader).
+            FitoTV-amazon.apk: la misma app para subir a la tienda de Amazon.
             Se instala encima de la versión anterior sin borrar perfiles ni listas.
             Desde esta versión, FitoTV avisa cuando hay una nueva y se actualiza desde Ajustes.

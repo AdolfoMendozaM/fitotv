@@ -62,6 +62,21 @@ android {
         buildConfig = true
     }
 
+    // Dos versiones del mismo código:
+    // - github: se instala por Downloader y se actualiza desde Ajustes → Actualizar FitoTV.
+    // - amazon: se publica en la tienda de Amazon y se actualiza por la tienda.
+    flavorDimensions += "tienda"
+    productFlavors {
+        create("github") {
+            dimension = "tienda"
+            buildConfigField("boolean", "SELF_UPDATE", "true")
+        }
+        create("amazon") {
+            dimension = "tienda"
+            buildConfigField("boolean", "SELF_UPDATE", "false")
+        }
+    }
+
     lint {
         // Media3 marca varias funciones como "inestables"; no deben frenar la compilación.
         checkReleaseBuilds = false

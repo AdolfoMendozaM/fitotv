@@ -137,6 +137,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Revisa en silencio una vez por arranque; a mano desde Ajustes avisa también si estás al día. */
     fun checkUpdate(manual: Boolean = false) {
+        // La versión de Amazon se actualiza por la tienda.
+        if (!com.fitotv.BuildConfig.SELF_UPDATE) return
         if (!manual && updateChecked) return
         updateChecked = true
         viewModelScope.launch {

@@ -457,7 +457,12 @@ fun SettingsScreen(vm: AppViewModel) {
             SettingRow("Cambiar de perfil", "Ahora: ${profile?.name ?: ""}", onClick = { vm.go(Screen.Profiles) }) {
                 Ico(Icons.USER, 24.dp, Fc.Muted2)
             }
-            SettingRow("Acerca de FitoTV", "Versión ${BuildConfig.VERSION_NAME} · OK para buscar actualizaciones", onClick = { about = true; vm.checkUpdate(manual = true) }) {
+            SettingRow(
+                "Acerca de FitoTV",
+                if (BuildConfig.SELF_UPDATE) "Versión ${BuildConfig.VERSION_NAME} · OK para buscar actualizaciones"
+                else "Versión ${BuildConfig.VERSION_NAME} · Se actualiza sola desde la tienda de Amazon",
+                onClick = { about = true; vm.checkUpdate(manual = true) },
+            ) {
                 Ico(Icons.INFO, 24.dp, Fc.Muted2)
             }
             if (about) {
