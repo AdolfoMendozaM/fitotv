@@ -3,6 +3,9 @@ name: Probar en emulador de tele
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   smoke:
     name: Recorrido en Android TV
@@ -45,3 +48,14 @@ jobs:
         with:
           name: recorrido
           path: recorrido/
+
+      - name: Guardar las capturas en la rama "recorrido"
+        if: always()
+        run: |
+          cd recorrido
+          mogrify -resize 1280x720 *.png || true
+          git init -q
+          git checkout -q -b recorrido
+          git add -A
+          git -c user.name="FitoTV" -c user.email="fitotv@users.noreply.github.com" commit -q -m "Recorrido ${{ github.run_number }}"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" recorrido
