@@ -53,6 +53,17 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk "FitoTV-${FITOTV_VERSION_NAME}.apk"
           # Copia con nombre fijo: así el enlace "latest/download/FitoTV.apk" siempre baja la más nueva.
           cp app/build/outputs/apk/release/app-release.apk FitoTV.apk
+          # La app lee este archivo para saber si hay versión nueva (Ajustes → Actualizar FitoTV).
+          python3 - <<'PY'
+          import json, os
+          notas = open('app/novedades.txt', encoding='utf-8').read().strip() if os.path.exists('app/novedades.txt') else ''
+          json.dump({
+              'versionCode': int(os.environ['FITOTV_VERSION_CODE']),
+              'versionName': os.environ['FITOTV_VERSION_NAME'],
+              'notes': notas,
+          }, open('version.json', 'w', encoding='utf-8'), ensure_ascii=False)
+          PY
+          cat version.json
 
       - uses: actions/upload-artifact@v4
         with:
@@ -68,6 +79,8 @@ jobs:
           files: |
             FitoTV-*.apk
             FitoTV.apk
+            version.json
           body: |
             Instalable para Google TV, Android TV y Fire TV.
             Se instala encima de la versión anterior sin borrar perfiles ni listas.
+            Desde esta versión, FitoTV avisa cuando hay una nueva y se actualiza desde Ajustes.

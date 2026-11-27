@@ -87,7 +87,7 @@ private fun GuideContent(vm: AppViewModel, channels: List<Channel>, groupName: S
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (focusedCh.num > 0) T(focusedCh.num.toString(), size = 30.sp, display = true, color = Fc.Num)
-                    ChannelLogo(focusedCh.name, focusedCh.logo, 36.dp, corner = 10.dp, fontSize = 12f)
+                    ChannelLogo(focusedCh.name, focusedCh.logo, width = 64.dp, height = 38.dp, corner = 9.dp, fontSize = 12f)
                     T(focusedCh.name, size = 18.sp, weight = FontWeight.SemiBold)
                 }
                 Gap(h = 12.dp)
@@ -134,7 +134,7 @@ private fun GuideContent(vm: AppViewModel, channels: List<Channel>, groupName: S
         Gap(h = 20.dp)
 
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
-            val chCol = 240.dp
+            val chCol = 290.dp
             val gap = 8.dp
             val timeline: Dp = maxWidth - chCol - gap
             fun x(t: Long): Dp = timeline * ((t - winStart).toFloat() / (winEnd - winStart)).coerceIn(0f, 1f)
@@ -231,9 +231,9 @@ private fun GuideRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            T(if (ch.num > 0) ch.num.toString() else "", size = 22.sp, display = true, color = Fc.Num, modifier = Modifier.width(34.dp))
-            ChannelLogo(ch.name, ch.logo, 34.dp, corner = 9.dp, fontSize = 10f)
-            T(ch.name, size = 15.sp, weight = FontWeight.SemiBold)
+            T(if (ch.num > 0) ch.num.toString() else "", size = 22.sp, display = true, color = Fc.Num, modifier = Modifier.width(40.dp))
+            ChannelLogo(ch.name, ch.logo, width = 60.dp, height = 36.dp, corner = 8.dp, fontSize = 11f)
+            T(ch.name, size = 14.sp, weight = FontWeight.SemiBold, maxLines = 2, lineHeight = 17.sp, modifier = Modifier.weight(1f))
         }
         Box(
             Modifier

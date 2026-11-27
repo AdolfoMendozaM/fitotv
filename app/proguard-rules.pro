@@ -1,4 +1,5 @@
 # Modelos que se guardan como JSON
+-keep class com.fitotv.update.UpdateInfo { *; }
 -keep class com.fitotv.data.** { *; }
 -keepclassmembers class com.fitotv.data.** { *** Companion; }
 

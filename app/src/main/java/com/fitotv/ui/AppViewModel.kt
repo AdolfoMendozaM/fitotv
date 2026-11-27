@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.fitotv.FitoApp
 import com.fitotv.data.AppData
 import com.fitotv.data.Channel
+import com.fitotv.data.ChannelNames
 import com.fitotv.data.ContentKind
 import com.fitotv.data.ListKind
 import com.fitotv.data.Playlist
@@ -19,6 +20,8 @@ import com.fitotv.data.Programme
 import com.fitotv.data.RecentItem
 import com.fitotv.data.RefreshResult
 import com.fitotv.data.newId
+import com.fitotv.update.UpdateInfo
+import com.fitotv.update.Updater
 import com.fitotv.pairing.PairedList
 import com.fitotv.sound.Sfx
 import kotlinx.coroutines.Dispatchers
@@ -116,6 +119,67 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var toast by mutableStateOf<Toast?>(null)
 
+    // ----- Actualizaciones de la app -----
+
+    private val updater = Updater(app)
+    private var updateChecked = false
+    private var updateFile: java.io.File? = null
+
+    /** Versión nueva publicada en GitHub (null si ya tienes la más reciente). */
+    var update by mutableStateOf<UpdateInfo?>(null)
+        private set
+    /** Avance de la descarga, 0 a 1; null si no se está bajando. */
+    var updateProgress by mutableStateOf<Float?>(null)
+        private set
+    /** Mensaje para Ajustes cuando algo pide un paso tuyo. */
+    var updateMsg by mutableStateOf<String?>(null)
+        private set
+
+    /** Revisa en silencio una vez por arranque; a mano desde Ajustes avisa también si estás al día. */
+    fun checkUpdate(manual: Boolean = false) {
+        if (!manual && updateChecked) return
+        updateChecked = true
+        viewModelScope.launch {
+            if (!manual) kotlinx.coroutines.delay(8_000)
+            val info = updater.check()
+            update = info
+            toast = when {
+                info != null -> Toast("Hay una versión nueva de FitoTV", "Ve a Ajustes y elige Actualizar FitoTV para instalar la ${info.versionName}.")
+                manual -> Toast("FitoTV está al día", "Tienes la versión más nueva (${com.fitotv.BuildConfig.VERSION_NAME}).")
+                else -> toast
+            }
+        }
+    }
+
+    /** Baja la versión nueva y abre el instalador. Perfiles y listas se quedan como están. */
+    fun installUpdate() {
+        val info = update ?: return
+        if (updateProgress != null) return
+        if (!updater.canInstall()) {
+            val opened = updater.openInstallPermission()
+            updateMsg = if (opened) {
+                "Activa el permiso para FitoTV, regresa y vuelve a elegir Actualizar FitoTV."
+            } else {
+                "Falta un permiso: ve a Configuración, Mi Fire TV, Opciones para desarrolladores, Instalar apps desconocidas, y activa FitoTV. Luego vuelve a elegir Actualizar FitoTV."
+            }
+            return
+        }
+        viewModelScope.launch {
+            updateMsg = null
+            updateProgress = 0f
+            try {
+                val ready = updateFile?.takeIf { it.exists() && it.name.contains(info.versionName) }
+                val file = ready ?: updater.download(info) { p -> viewModelScope.launch { updateProgress = p } }
+                updateFile = file
+                updater.install(file)
+            } catch (e: Exception) {
+                updateMsg = "No se pudo bajar la actualización. Revisa tu internet e intenta de nuevo."
+            } finally {
+                updateProgress = null
+            }
+        }
+    }
+
     fun profile(d: AppData = data.value): Profile? = d.profiles.firstOrNull { it.id == profileId }
 
     fun profileData(d: AppData = data.value): ProfileData = d.profileData[profileId] ?: ProfileData()
@@ -131,6 +195,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startSession(id: String) {
         profileId = id
+        checkUpdate()
         store.update { it.copy(settings = it.settings.copy(lastProfileId = id)) }
         viewModelScope.launch {
             loadActive()
@@ -154,7 +219,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         loading = false
     }
 
-    private fun applyChannels(all: List<Channel>) {
+    private fun applyChannels(raw: List<Channel>) {
+        // Nombres limpios para pantalla ("≡P2 - Canal 5" → "Canal 5"); los id no cambian.
+        val all = ChannelNames.clean(raw)
         val kids = profile()?.kids == true
         val visible = if (kids) all.filter { isKidsGroup(it.group) } else all
         channels = visible

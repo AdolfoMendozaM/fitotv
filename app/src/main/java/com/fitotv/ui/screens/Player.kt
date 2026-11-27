@@ -385,7 +385,7 @@ private fun LiveBanner(vm: AppViewModel, ch: Channel, avatar: String?, profileNa
                 Row(verticalAlignment = Alignment.Bottom) {
                     Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                         if (ch.num > 0) T(ch.num.toString(), size = 60.sp, display = true, color = Fc.Num)
-                        ChannelLogo(ch.name, ch.logo, 60.dp, corner = 14.dp, fontSize = 18f)
+                        ChannelLogo(ch.name, ch.logo, width = 104.dp, height = 60.dp, corner = 14.dp, fontSize = 18f)
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             T(ch.name, size = 18.sp, color = Fc.Muted2)
                             T(now?.title ?: "En vivo", size = 36.sp, display = true, letterSpacing = (-0.5).sp)

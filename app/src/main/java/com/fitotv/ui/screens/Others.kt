@@ -424,7 +424,26 @@ fun SettingsScreen(vm: AppViewModel) {
         ) {
             T("Ajustes", size = 46.sp, display = true, letterSpacing = (-1).sp)
             Gap(h = 10.dp)
-            SettingRow("Sonidos", "Los sonidos de marimba al moverte y al abrir FitoTV", focusRequester = firstFr, onClick = { vm.setSound(!d.settings.sound) }) {
+            val upd = vm.update
+            if (upd != null) {
+                val prog = vm.updateProgress
+                SettingRow(
+                    "Actualizar FitoTV a la ${upd.versionName}",
+                    when {
+                        prog != null -> "Descargando… ${(prog * 100).toInt()} %"
+                        upd.notes.isNotBlank() -> upd.notes
+                        else -> "Tienes la ${BuildConfig.VERSION_NAME}. Se instala encima sin borrar perfiles ni listas."
+                    },
+                    focusRequester = firstFr,
+                    onClick = { vm.installUpdate() },
+                ) {
+                    Ico(Icons.REFRESH, 24.dp, Fc.Menta)
+                }
+                vm.updateMsg?.let { msg ->
+                    T(msg, size = 16.sp, color = Fc.Ambar, maxLines = 3, lineHeight = 23.sp, modifier = Modifier.width(820.dp))
+                }
+            }
+            SettingRow("Sonidos", "Los sonidos de marimba al moverte y al abrir FitoTV", focusRequester = if (upd == null) firstFr else null, onClick = { vm.setSound(!d.settings.sound) }) {
                 Switch(d.settings.sound)
             }
             SettingRow("Mis listas", "${vm.listsOf(d).size} de ${profile?.name ?: "este perfil"}", onClick = { vm.go(Screen.Lists) }) {
@@ -438,7 +457,7 @@ fun SettingsScreen(vm: AppViewModel) {
             SettingRow("Cambiar de perfil", "Ahora: ${profile?.name ?: ""}", onClick = { vm.go(Screen.Profiles) }) {
                 Ico(Icons.USER, 24.dp, Fc.Muted2)
             }
-            SettingRow("Acerca de FitoTV", "Versión ${BuildConfig.VERSION_NAME}", onClick = { about = !about }) {
+            SettingRow("Acerca de FitoTV", "Versión ${BuildConfig.VERSION_NAME} · OK para buscar actualizaciones", onClick = { about = true; vm.checkUpdate(manual = true) }) {
                 Ico(Icons.INFO, 24.dp, Fc.Muted2)
             }
             if (about) {

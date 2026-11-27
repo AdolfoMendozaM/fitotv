@@ -248,30 +248,43 @@ fun initials(name: String): String {
     return main.take(2).joinToString("") { it.take(1).uppercase() }.ifEmpty { "TV" }
 }
 
-/** Logo del canal; si no trae, sus iniciales sobre un color. */
+/** Logo del canal; si no trae (o no carga), sus iniciales sobre un color. */
 @Composable
-fun ChannelLogo(name: String, logo: String, size: Dp, corner: Dp = 8.dp, fontSize: Float = 10f) {
+fun ChannelLogo(name: String, logo: String, size: Dp, corner: Dp = 8.dp, fontSize: Float = 10f) =
+    ChannelLogo(name, logo, size, size, corner, fontSize)
+
+/**
+ * Placa del logo, puede ser más ancha que alta: casi todos los logos de canal son horizontales.
+ * Mientras el logo no carga (o si falla) se ven las iniciales sobre el color del canal.
+ */
+@Composable
+fun ChannelLogo(name: String, logo: String, width: Dp, height: Dp, corner: Dp = 8.dp, fontSize: Float = 10f) {
+    var loaded by remember(logo) { mutableStateOf(false) }
     Box(
         Modifier
-            .size(size)
+            .size(width, height)
             .clip(RoundedCornerShape(corner))
-            .background(Fc.tileFor(name)),
+            .background(if (loaded) LogoPlate else Fc.tileFor(name)),
         contentAlignment = Alignment.Center,
     ) {
-        T(initials(name), size = fontSize.sp, weight = FontWeight.Bold, letterSpacing = (-0.2).sp)
+        if (!loaded) T(initials(name), size = fontSize.sp, weight = FontWeight.Bold, letterSpacing = (-0.2).sp)
         if (logo.isNotBlank()) {
             AsyncImage(
                 model = logo,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
+                onSuccess = { loaded = true },
+                onError = { loaded = false },
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Fc.tileFor(name))
-                    .padding(size * 0.1f),
+                    .padding(horizontal = width * 0.08f, vertical = height * 0.1f),
             )
         }
     }
 }
+
+/** Fondo neutro detrás de los logos: deja ver logos claros y de color sobre el azul. */
+private val LogoPlate = Color(0x24FFFFFF)
 
 @Composable
 fun Pill(text: String, bg: Color = Fc.MentaSoft, fg: Color = Fc.Menta, height: Dp = 28.dp, fontSize: Float = 14f, dot: Color? = null) {

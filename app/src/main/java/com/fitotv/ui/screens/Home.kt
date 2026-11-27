@@ -374,7 +374,7 @@ private fun Hero(
                     val (now, next) = epgFor(vm.epg, item.ch)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (item.ch.num > 0) T(item.ch.num.toString(), size = 30.sp, display = true, color = Fc.Num)
-                        ChannelLogo(item.ch.name, item.ch.logo, 32.dp, corner = 9.dp, fontSize = 10f)
+                        ChannelLogo(item.ch.name, item.ch.logo, width = 60.dp, height = 36.dp, corner = 9.dp, fontSize = 11f)
                         T(item.ch.name, size = 18.sp, weight = FontWeight.SemiBold)
                     }
                     Gap(h = 8.dp)

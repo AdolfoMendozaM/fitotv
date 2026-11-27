@@ -162,8 +162,8 @@ fun RecentChannelCard(
         Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (ch.num > 0) T(ch.num.toString(), size = 24.sp, display = true, color = if (f) Color.White else Fc.Num)
-                ChannelLogo(ch.name, ch.logo, 30.dp, fontSize = 9f)
-                T(ch.name, size = 15.sp, weight = FontWeight.SemiBold)
+                T(ch.name, size = 15.sp, weight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                ChannelLogo(ch.name, ch.logo, width = 52.dp, height = 30.dp, corner = 7.dp, fontSize = 9f)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.size(7.dp).clip(CircleShape).background(Fc.Menta))
@@ -174,6 +174,10 @@ fun RecentChannelCard(
     }
 }
 
+/**
+ * Tarjeta de canal: número y logo arriba, nombre hasta en dos líneas y,
+ * si hay guía, lo que está pasando con su barra de avance.
+ */
 @Composable
 fun ChannelCard(
     ch: Channel,
@@ -186,33 +190,42 @@ fun ChannelCard(
     focusRequester: FocusRequester? = null,
 ) {
     FocusBox(onClick = onClick, onFocus = onFocus, focusRequester = focusRequester, modifier = modifier.height(124.dp)) { f ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (ch.num > 0) T(ch.num.toString(), size = 24.sp, display = true, color = if (f) Color.White else Fc.Num)
-                ChannelLogo(ch.name, ch.logo, 30.dp, fontSize = 9f)
-                T(ch.name, size = 15.sp, weight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                if (favorite) T("★", size = 14.sp, color = Fc.Menta)
+        Box(Modifier.fillMaxSize()) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(start = 14.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Row(Modifier.fillMaxWidth().height(36.dp), verticalAlignment = Alignment.CenterVertically) {
+                    T(
+                        if (ch.num > 0) ch.num.toString() else "",
+                        size = 24.sp,
+                        display = true,
+                        color = if (f) Color.White else Fc.Num,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (favorite) T("★", size = 14.sp, color = Fc.Menta, modifier = Modifier.padding(end = 8.dp))
+                    ChannelLogo(ch.name, ch.logo, width = 64.dp, height = 36.dp, corner = 8.dp, fontSize = 12f)
+                }
+                T(ch.name, size = 15.sp, weight = FontWeight.SemiBold, maxLines = 2, lineHeight = 18.sp)
+                val sub = now?.title ?: if (showGroup) ch.group else if (ch.kind != ContentKind.LIVE) typeLabel(ch.kind) else ""
+                if (sub.isNotBlank()) T(sub, size = 13.sp, color = Fc.Muted2, lineHeight = 16.sp)
             }
-            val sub = now?.title ?: if (showGroup) ch.group else if (ch.kind != com.fitotv.data.ContentKind.LIVE) typeLabel(ch.kind) else ""
-            T(sub, size = 14.sp, color = Fc.Muted2, maxLines = 2, lineHeight = 19.sp)
-            Box(Modifier.weight(1f))
             if (now != null) {
                 Box(
                     Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 14.dp, end = 12.dp, bottom = 6.dp)
                         .fillMaxWidth()
-                        .height(4.dp)
+                        .height(3.dp)
                         .clip(RoundedCornerShape(2.dp))
                         .background(Fc.Track)
                 ) {
                     Box(
                         Modifier
                             .fillMaxWidth(progressOf(now))
-                            .height(4.dp)
+                            .height(3.dp)
                             .background(Fc.Menta)
                     )
                 }
