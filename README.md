@@ -31,19 +31,29 @@ Para armarlo en tu compu: abre la carpeta en Android Studio y usa *Build → Bui
 
 ## Cómo se instala
 
+Este enlace siempre baja la versión más nueva:
+
+```
+https://github.com/AdolfoMendozaM/fitotv/releases/latest/download/FitoTV.apk
+```
+
 **Fire TV**
 
-1. En el Fire TV: *Configuración → Mi Fire TV → Opciones para desarrolladores* y activa *Instalar apps desconocidas* para la app **Downloader**.
-2. Instala **Downloader** desde la tienda de Amazon.
-3. En Downloader escribe el enlace del `.apk` y sigue los pasos.
+1. Instala **Downloader** desde la tienda de Amazon (búscalo con la lupa).
+2. Activa las opciones de desarrollador: *Configuración → Mi Fire TV → Acerca de*, y presiona OK unas 7 veces sobre el nombre de tu dispositivo (por ejemplo "Fire TV Stick 4K") hasta que diga que ya eres desarrollador.
+3. Regresa un menú y entra a *Opciones para desarrolladores → Instalar apps desconocidas*. Activa **Downloader**.
+4. Abre Downloader, escribe el enlace de arriba y elige *Instalar*.
 
 **Google TV / Android TV**
 
-Usa **Downloader** (de la Play Store) igual que en Fire TV, o la app **Send Files to TV** desde tu celular.
+1. Instala **Downloader** desde la Play Store.
+2. Activa el modo de desarrollador: *Configuración → Sistema → Acerca de*, y presiona OK unas 7 veces sobre *Compilación del SO de Android TV* hasta que diga que ya eres desarrollador.
+3. Ve a *Configuración → Apps → Seguridad y restricciones → Fuentes desconocidas* y activa **Downloader**. (En algunas teles el menú se llama distinto, por ejemplo *Acceso especial de apps → Instalar apps desconocidas*.)
+4. Abre Downloader, escribe el enlace de arriba y elige *Instalar*.
 
-Cada versión nueva se instala encima de la anterior y conserva perfiles, listas y recientes.
+Cada versión nueva se instala encima de la anterior y conserva perfiles, listas y recientes. Para actualizar, repite el paso 4.
 
-> El repositorio es privado, así que los enlaces de Releases piden iniciar sesión. Para que la familia pueda descargarlo, sube el `.apk` a un lugar con enlace público (por ejemplo Google Drive o tu propio sitio) o haz público el repositorio.
+> Para no escribir el enlace completo con el control, puedes crear un código corto de Downloader en [aftvnews.com/downloader](https://www.aftvnews.com/downloader/) con el enlace de arriba. Como el enlace nunca cambia, el código sirve para todas las versiones.
 
 ## Firma del instalable
 
