@@ -17,18 +17,21 @@ package com.fitotv.data
  */
 object ChannelNames {
     // Al inicio: todo lo que no sea letra, número o el comienzo de una etiqueta [MX] (MX) 【MX】.
-    private val leadingJunk = Regex("(?U)^[^\\p{L}\\p{N}\\[(【]+")
+    private val leadingJunk = Regex("^[^\\p{L}\\p{N}\\[(【]+")
     // Al final: adornos y emojis, pero se respetan "Disney+", "¡Hola!" y cierres de paréntesis.
-    private val trailingJunk = Regex("(?U)[^\\p{L}\\p{N})\\]】+!?']+$")
-    private val bracketTag = Regex("(?U)^(\\[[^\\]]{1,14}]|\\([^)]{1,14}\\)|\\|[^|]{1,14}\\||【[^】]{1,14}】)\\s*")
+    private val trailingJunk = Regex("[^\\p{L}\\p{N})\\]】+!?']+$")
+    private val bracketTag = Regex("^(\\[[^\\]]{1,14}]|\\([^)]{1,14}\\)|\\|[^|]{1,14}\\||【[^】]{1,14}】)\\s*")
     // Clave del proveedor y un separador: cualquier símbolo ("P2 - ", "P2 ➤ ", "P2 −", "P2: ") o solo espacio.
-    private val codeTag = Regex("(?U)^([\\p{L}\\p{N}]{1,6})(\\s*[^\\p{L}\\p{N}\\s\\[(【]{1,3}\\s*|\\s+)(?=\\S)")
+    private val codeTag = Regex("^([\\p{L}\\p{N}]{1,6})(\\s*[^\\p{L}\\p{N}\\s\\[(【]{1,3}\\s*|\\s+)(?=\\S)")
     // Clave al final: "Canal 5 P2", "Canal 5 (P2)", "Canal 5 [P2]", "Canal 5 - P2".
-    private val trailingCode = Regex("(?U)(?<=\\S)\\s*(?:[-–—|•·:/]\\s*|\\s)[(\\[]?([A-Za-z]{1,3}\\d{1,3})[)\\]]?\\s*$")
+    private val trailingCode = Regex("(?<=\\S)\\s*(?:[-–—|•·:/]\\s*|\\s)[(\\[]?([A-Za-z]{1,3}\\d{1,3})[)\\]]?\\s*$")
     private val codeLike = Regex("^[A-Za-z]{1,3}\\d{1,3}$")
-    private val spaces = Regex("(?U)\\s{2,}")
-    private val trailingRes = Regex("(?U)\\s*\\((\\d{3,4}[pPiI]|4[kK]|UHD|FHD|HD|SD)\\)\\s*$")
-    private val trailingNote = Regex("(?U)\\s*\\[([^\\]]{1,24})]\\s*$")
+    // Espacios raros (sin corte, finos, de ancho cero): se vuelven espacio normal antes de limpiar.
+    // (Android no acepta la bandera (?U), así que se normaliza el texto en lugar de la expresión.)
+    private val oddSpaces = Regex("[\\u00A0\\u1680\\u2000-\\u200B\\u202F\\u205F\\u3000\\uFEFF]")
+    private val spaces = Regex("\\s{2,}")
+    private val trailingRes = Regex("\\s*\\((\\d{3,4}[pPiI]|4[kK]|UHD|FHD|HD|SD)\\)\\s*$")
+    private val trailingNote = Regex("\\s*\\[([^\\]]{1,24})]\\s*$")
     private val countries = setOf(
         "MX", "MEX", "US", "USA", "ES", "ESP", "SPA", "AR", "ARG", "CO", "COL", "PE", "PER", "CL", "CHI",
         "EC", "VE", "UY", "PY", "BO", "CR", "GT", "HN", "SV", "NI", "PA", "DO", "RD", "PR", "CU", "BR",
@@ -38,14 +41,15 @@ object ChannelNames {
     /** Devuelve los canales con el nombre limpio, en el mismo orden. */
     fun clean(channels: List<Channel>): List<Channel> {
         if (channels.isEmpty()) return channels
+        val names = channels.map { it.name.replace(oddSpaces, " ") }
         // 1) Cuántas veces aparece cada etiqueta en la lista.
         val counts = HashMap<String, Int>()
         val notes = HashMap<String, Int>()
         val tails = HashMap<String, Int>()
-        channels.forEach { ch ->
-            tags(ch.name).forEach { counts[it] = (counts[it] ?: 0) + 1 }
-            trailingNote.find(ch.name)?.let { m -> val k = m.groupValues[1].trim().uppercase(); notes[k] = (notes[k] ?: 0) + 1 }
-            trailingCode.find(ch.name.replace(trailingJunk, ""))?.let { m ->
+        names.forEach { name ->
+            tags(name).forEach { counts[it] = (counts[it] ?: 0) + 1 }
+            trailingNote.find(name)?.let { m -> val k = m.groupValues[1].trim().uppercase(); notes[k] = (notes[k] ?: 0) + 1 }
+            trailingCode.find(name.replace(trailingJunk, ""))?.let { m ->
                 val k = m.groupValues[1].uppercase(); tails[k] = (tails[k] ?: 0) + 1
             }
         }
@@ -55,7 +59,7 @@ object ChannelNames {
         val removableTails = tails.filterValues { it >= minRepeats }.keys
 
         // 2) Limpieza; guardamos qué etiquetas se quitaron por si hay que devolverlas.
-        val cleaned = channels.map { ch -> strip(ch.name, removable, removableNotes, removableTails) }
+        val cleaned = names.map { strip(it, removable, removableNotes, removableTails) }
 
         // 3) Choques: dos canales distintos con el mismo nombre limpio.
         val byName = cleaned.indices.groupBy { cleaned[it].first.lowercase() }
