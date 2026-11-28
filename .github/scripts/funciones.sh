@@ -138,7 +138,7 @@ sleep 1
 for i in 1 2 3; do key KEYCODE_DPAD_DOWN; done; key KEYCODE_DPAD_CENTER   # un subtítulo
 sleep 2; shot F34-panel-elegido
 key KEYCODE_BACK; sleep 4; shot F35-con-subtitulos
-key KEYCODE_BACK; sleep 3
+key KEYCODE_BACK; sleep 3; shot F35b-de-regreso
 key KEYCODE_DPAD_UP; key KEYCODE_DPAD_UP; sleep 1; shot F36-categorias
 key KEYCODE_DPAD_RIGHT; key KEYCODE_DPAD_CENTER; sleep 3; shot F37-categoria
 rail 4; sleep 4; shot F38-series

@@ -301,10 +301,20 @@ fun PlayerScreen(vm: AppViewModel, s: Screen.Player) {
             .focusRequester(fr)
             .focusable()
             .onPreviewKeyEvent { e ->
-                // Con el panel de idioma abierto, las flechas y OK son del panel.
-                if (panel) return@onPreviewKeyEvent false
-                if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 val code = e.nativeKeyEvent.keyCode
+                // Con el panel de idioma abierto, las flechas y OK son del panel; Atrás lo cierra
+                // (se atiende aquí, al soltar la tecla, para que el primer Atrás no se pierda).
+                if (panel) {
+                    if (code == AndroidKey.KEYCODE_BACK || code == AndroidKey.KEYCODE_ESCAPE) {
+                        if (e.type == KeyEventType.KeyUp) {
+                            panel = false
+                            runCatching { fr.requestFocus() }
+                        }
+                        return@onPreviewKeyEvent true
+                    }
+                    return@onPreviewKeyEvent false
+                }
+                if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when {
                     hasOptions && (code == AndroidKey.KEYCODE_MENU || code == AndroidKey.KEYCODE_CAPTIONS ||
                         code == AndroidKey.KEYCODE_MEDIA_AUDIO_TRACK || (isVod && code == AndroidKey.KEYCODE_DPAD_DOWN) ||
