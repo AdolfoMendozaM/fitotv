@@ -30,8 +30,9 @@ class LibraryTest {
     fun episodiosAgrupadosPorSerie() {
         val raw = M3uParser.parse(m3u.reader().buffered(), "L").channels
         val lib = Library.build(raw, kids = false)
-        assertEquals(listOf("El Chema", "Lost"), lib.shows.items.map { it.name })
-        val chema = lib.shows.items[0]
+        // Lost tiene el episodio más nuevo (31), así que va primero.
+        assertEquals(listOf("Lost", "El Chema"), lib.shows.items.map { it.name })
+        val chema = lib.shows.items.first { it.name == "El Chema" }
         assertTrue(chema.isShow)
         val eps = lib.episodesByShow[chema.seriesId]!!
         assertEquals(listOf(1 to 1, 1 to 2, 2 to 1), eps.map { it.season to it.episode })
