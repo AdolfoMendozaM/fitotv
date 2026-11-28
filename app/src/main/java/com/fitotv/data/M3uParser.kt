@@ -37,6 +37,8 @@ object M3uParser {
             val base = stableId(url, name)
             val dup = seen.getOrDefault(base, 0)
             seen[base] = dup + 1
+            // Episodios sueltos: se agrupan por serie y temporada con su nombre ("El Chema S01 E05").
+            val ep = if (kind == ContentKind.SERIES) SeriesNames.parse(name) else null
             out.add(
                 Channel(
                     id = if (dup == 0) base else "$base-$dup",
@@ -49,6 +51,9 @@ object M3uParser {
                     kind = kind,
                     userAgent = attrs["user-agent"] ?: userAgent,
                     referrer = referrer,
+                    seriesId = ep?.let { "m:" + it.show }.orEmpty(),
+                    season = ep?.season ?: 0,
+                    episode = ep?.episode ?: 0,
                 )
             )
             pendingName = null

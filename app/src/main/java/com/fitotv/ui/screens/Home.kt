@@ -345,7 +345,7 @@ private fun Hero(
                             T(list.name.take(1).uppercase(), size = 14.sp, color = Fc.Noche, weight = FontWeight.Bold)
                         }
                         T(list.name, size = 15.sp, weight = FontWeight.SemiBold)
-                        T("${vm.channels.count { it.kind == ContentKind.LIVE }} canales", size = 15.sp, color = Fc.Muted)
+                        T("${vm.lib.live.size} canales", size = 15.sp, color = Fc.Muted)
                         Ico(Icons.CHEVRON_DOWN, 18.dp, Fc.Muted, stroke = 2.2f)
                     }
                 }

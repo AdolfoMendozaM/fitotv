@@ -75,7 +75,17 @@ data class Channel(
     val kind: ContentKind = ContentKind.LIVE,
     val userAgent: String = "",
     val referrer: String = "",
-)
+    /**
+     * Series: en una serie completa (Xtream) o en un episodio, a qué serie pertenece.
+     * "x:123" viene del proveedor (series_id); "m:Nombre" se armó con los nombres de la lista M3U.
+     */
+    val seriesId: String = "",
+    val season: Int = 0,
+    val episode: Int = 0,
+) {
+    /** Una serie completa: se abre para ver sus temporadas en lugar de reproducirse. */
+    val isShow: Boolean get() = kind == ContentKind.SERIES && url.isEmpty() && seriesId.isNotEmpty()
+}
 
 @Serializable
 data class RecentItem(
@@ -85,6 +95,8 @@ data class RecentItem(
     val at: Long,
     val positionMs: Long = 0,
     val durationMs: Long = 0,
+    /** Copia del episodio cuando no forma parte de la lista guardada (episodios de Xtream). */
+    val snapshot: Channel? = null,
 )
 
 @Serializable

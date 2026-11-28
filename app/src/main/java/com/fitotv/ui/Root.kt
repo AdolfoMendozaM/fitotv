@@ -48,6 +48,7 @@ fun Root(vm: AppViewModel) {
                 Screen.Groups -> GroupsScreen(vm)
                 is Screen.Catalog -> CatalogScreen(vm, s)
                 Screen.Search -> SearchScreen(vm)
+                is Screen.Series -> com.fitotv.ui.screens.SeriesScreen(vm, s)
                 Screen.Settings -> SettingsScreen(vm)
                 is Screen.Player -> PlayerScreen(vm, s)
             }
@@ -56,7 +57,7 @@ fun Root(vm: AppViewModel) {
         ToastHost(vm.toast, onDone = { vm.toast = null })
         // Versión nueva: ventana emergente en las pantallas principales, nunca encima de un canal.
         val main = when (vm.screen) {
-            Screen.Home, Screen.Guide, Screen.Lists, Screen.Groups, Screen.Search, Screen.Settings, is Screen.Catalog -> true
+            Screen.Home, Screen.Guide, Screen.Lists, Screen.Groups, Screen.Search, Screen.Settings, is Screen.Catalog, is Screen.Series -> true
             else -> false
         }
         if (vm.updatePrompt && vm.update != null && main && !vm.revealing) UpdateDialog(vm)

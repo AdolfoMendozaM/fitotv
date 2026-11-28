@@ -2,6 +2,9 @@ name: Probar en emulador de tele
 
 on:
   workflow_dispatch:
+  # Mientras se prueba la versión 1.0.17 (se quita al unirla a main).
+  push:
+    branches: [api36]
 
 permissions:
   contents: write
@@ -10,7 +13,7 @@ jobs:
   smoke:
     name: Recorrido en Android TV
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
 
@@ -41,7 +44,7 @@ jobs:
           profile: tv_1080p
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: bash .github/scripts/recorrido.sh
+          script: bash .github/scripts/recorrido.sh && bash .github/scripts/lista-grande.sh
 
       - uses: actions/upload-artifact@v4
         if: always()

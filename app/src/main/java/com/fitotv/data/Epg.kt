@@ -21,12 +21,14 @@ class EpgRepository(private val store: Store) {
 
     fun cached(listId: String): Map<String, List<Programme>> = cache[listId] ?: emptyMap()
 
+    fun savedAt(listId: String): Long = store.epgSavedAt(listId)
+
     fun guideUrl(p: Playlist): String = when {
         p.kind == ListKind.XTREAM -> Xtream.epgUrl(p.server, p.user, p.pass)
         else -> p.epgUrl
     }
 
-    suspend fun refresh(p: Playlist, channels: List<Channel>): Boolean = withContext(Dispatchers.IO) {
+    suspend fun refresh(p: Playlist, channels: List<Channel>): Boolean = withContext(Background) {
         val url = guideUrl(p)
         if (url.isBlank()) return@withContext false
         val wanted = channels.asSequence().filter { it.kind == ContentKind.LIVE && it.tvgId.isNotBlank() }

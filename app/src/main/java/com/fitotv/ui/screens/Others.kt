@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -277,10 +278,12 @@ fun CatalogScreen(vm: AppViewModel, s: Screen.Catalog) {
     val d by vm.data.collectAsState()
     val tab = if (s.kind == ContentKind.MOVIE) Tab.MOVIES else Tab.SERIES
     val title = if (s.kind == ContentKind.MOVIE) "Películas" else "Series"
-    val all = remember(vm.channels, s.kind) { vm.vod(s.kind) }
-    val cats = remember(all) { all.map { it.group }.distinct() }
+    val catalog = vm.catalog(s.kind)
+    val all = catalog.items
+    val cats = catalog.cats
     var cat by remember(s.kind) { mutableStateOf<String?>(null) }
-    val shown = remember(all, cat) { if (cat == null) all else all.filter { it.group == cat } }
+    val selectedCat = cat
+    val shown = if (selectedCat == null) all else catalog.byCat[selectedCat].orEmpty()
     val recents = remember(d) { vm.profileData(d).recents.associateBy { it.channelId } }
     val firstFr = rememberAutoFocus(s.kind)
 
@@ -313,7 +316,7 @@ fun CatalogScreen(vm: AppViewModel, s: Screen.Catalog) {
             ) {
                 itemsIndexed(shown, key = { _, c -> c.id }) { i, ch ->
                     PosterCard(ch, recents[ch.id]?.let { vodFraction(it) } ?: 0f, if (i == 0) firstFr else null) {
-                        vm.play(ch, listOf(ch))
+                        if (ch.isShow) vm.go(Screen.Series(ch.id)) else vm.play(ch, listOf(ch))
                     }
                 }
             }
@@ -365,7 +368,16 @@ private fun PosterCard(ch: Channel, progress: Float, fr: androidx.compose.ui.foc
 @Composable
 fun SearchScreen(vm: AppViewModel) {
     var query by remember { mutableStateOf("") }
-    val results = remember(query, vm.channels) { vm.search(query) }
+    var results by remember { mutableStateOf<List<Channel>>(emptyList()) }
+    // La búsqueda corre fuera de la pantalla y espera a que dejes de escribir un momento.
+    LaunchedEffect(query, vm.lib) {
+        if (query.trim().length < 2) {
+            results = emptyList()
+            return@LaunchedEffect
+        }
+        kotlinx.coroutines.delay(180)
+        results = vm.search(query)
+    }
     val fieldFr = rememberAutoFocus()
     MainScaffold(vm, Tab.SEARCH) {
         Column(
@@ -393,7 +405,13 @@ fun SearchScreen(vm: AppViewModel) {
                             ChannelCard(
                                 ch,
                                 if (ch.kind == ContentKind.LIVE) epgFor(vm.epg, ch).first else null,
-                                onClick = { vm.play(ch, if (ch.kind == ContentKind.LIVE) results.filter { it.kind == ContentKind.LIVE } else listOf(ch)) },
+                                onClick = {
+                                    when {
+                                        ch.isShow -> vm.go(Screen.Series(ch.id))
+                                        ch.kind == ContentKind.LIVE -> vm.play(ch, results.filter { it.kind == ContentKind.LIVE })
+                                        else -> vm.play(ch, listOf(ch))
+                                    }
+                                },
                                 onFocus = {},
                             )
                         }
@@ -450,7 +468,7 @@ fun SettingsScreen(vm: AppViewModel) {
                 T("Abrir", size = 16.sp, color = Fc.Muted)
             }
             if (list != null) {
-                SettingRow("Actualizar ${list.name} ahora", "Normalmente se actualiza sola cada vez que abres FitoTV", onClick = { vm.refreshActive(quietWhenSame = false) }) {
+                SettingRow("Actualizar ${list.name} ahora", "Se actualiza sola en segundo plano varias veces al día", onClick = { vm.refreshActive(quietWhenSame = false) }) {
                     Ico(Icons.REFRESH, 24.dp, Fc.Muted2)
                 }
             }
