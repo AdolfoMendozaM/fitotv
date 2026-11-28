@@ -1,0 +1,17 @@
+API: lista lista en 20 s
+API: 'Ver mis canales' en pantalla a los 12 s
+API, recién agregada:  TOTAL 299727 267384 22412 18 299727 362300 107353 244479
+API, después de recorrer:  TOTAL 238426 199004 27352 4 238426 364523 105252 248602
+API al volver a abrir: 'Ver ahora' en pantalla a los 14 s
+API, al volver a abrir:  TOTAL 158435 122668 25016 18 158435 145270 85321 49787
+API: la app sigue abierta
+M3U: lista lista en 95 s
+M3U: 'Ver mis canales' en pantalla a los 10 s
+M3U, recién agregada:  TOTAL 283100 250628 22248 26 283100 572146 102864 456152
+M3U, después de recorrer:  TOTAL 280984 244124 25864 12 280984 577087 109507 454573
+M3U: la app sigue abierta
+11-28 09:39:40.818 17755 17755 I Choreographer: Skipped 59 frames!  The application may be doing too much work on its main thread.
+11-28 09:39:42.964 17703 17703 I Choreographer: Skipped 193 frames!  The application may be doing too much work on its main thread.
+11-28 09:39:43.579 17703 17703 I Choreographer: Skipped 30 frames!  The application may be doing too much work on its main thread.
+11-28 09:42:55.888 20280 20280 I Choreographer: Skipped 42 frames!  The application may be doing too much work on its main thread.
+11-28 09:43:13.311 20548 20548 I Choreographer: Skipped 36 frames!  The application may be doing too much work on its main thread.

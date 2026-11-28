@@ -1,0 +1,31 @@
+En pantalla: 'Ver mis canales' (1 s)
+Lista agregada con el control: OK
+Textos de Inicio: Inicio|Guía|Películas|Series|Buscar|Ajustes|P|Premium|13 canales|Cine Premium|8|1|HF|HBO Family SD|Los Croods|Ahora, 08:56 a 10:36|quedan 1 h 2 min|Después, Navidad en el país de las maravillas a las 10:36|Ver ahora|Vista previa|Cine Premium|8 canales|1|HF|HBO Family SD|2|2|HBO 2 HD|3|C|Cinemax HD|4|AE|A&amp;E FHD|5|SC|Star Channel HD|6|TS|TNT Series FHD|7|W|Warner FHD|8|H|HBO HD|
+Grupos: Grupos de Premium|13 canales en 3 grupos. Elige uno para ver sus canales.|Cine Premium|8 canales|Deportes PE|3 canales|Copa Libertadores 2026|2 canales|
+Textos al regresar: Inicio|Guía|Películas|Series|Buscar|Ajustes|P|Premium|13 canales|Deportes PE|3|9|2|ESPN 2 HD|Fútbol picante|Ahora, 09:00 a 09:45|quedan 10 min|Vista previa|Viste hace poco|Los últimos canales que abriste|Hace un momento|2|ESPN 2 HD|Fútbol picante|Deportes PE|3 canales|9|2|ESPN 2 HD|10|FS|FOX Sports|11|T|TUDN|
+Esperando la guía…
+11-28 09:33:37.271  9667 10233 I FitoEPG : guía del proveedor: 0 canales; sin guía: 13
+11-28 09:33:40.350  9667 10233 I FitoEPG : guía pública: 11 de 13 canales en 3079 ms
+Guía: Inicio|Guía|Películas|Series|Buscar|Ajustes|9|2|ESPN 2 HD|Fútbol picante|09:00 a 09:45|empezó hace 35 min|La mesa más picante discute las últimas novedades del fútbol mexicano y analiza la actuación de los futbolistas mexicanos en el exterior.|Vista previa|Grupo|Deportes PE|Hoy 09:30|10:00|10:30|11:00|9|2|ESPN 2 HD|Fútbol picante|09:00 a 09:45|Campeonato Mundial de &#127949;️ [MotoGP] MotoGP [NEW]|09:45 a 10:50|Automovilismo Fórmula 1|10:50 a 11:50|10|FS|FOX Sports|The Fifth Quarter|09:30 a 09:45|The Fifth Quarter|09:45 a 10:00|Noticiero|10:00 a 11:00|Debate|11:00 a 12:00|11|T|TUDN|Fútbol Mexicano Primera División|09:00 a 11:00|Contacto deportivo|11:00 a 12:00|
+Películas: Inicio|Guía|Películas|Series|Buscar|Ajustes|Películas|120 en Premium|Todo|Acción|Comedia|Estrenos 2026|Terror|Lo más nuevo|120|Película número 120 (2002)|119|Película número 119 (2001)|118|Película número 118 (2000)|117|Película número 117 (1999)|116|Película número 116 (1998)|115|Película número 115 (1997)|114|Película número 114 (1996)|Película número 113 (1995)|Acción|30 títulos|120|116|112|108|104|100|96|
+Panel: Idioma y subtítulos|Se recuerda para tus siguientes películas y series.|Idioma|Español|Inglés|Subtítulos|Sin subtítulos|Español|Inglés|Atrás|Cerrar|
+Ajustes: Inicio|Guía|Películas|Series|Buscar|Ajustes|Ajustes|Sonidos|Los sonidos de marimba al moverte y al abrir FitoTV|Mis listas|1 de Atz|Abrir|Vigencia de tu cuenta de Premium|Vence el 26 de febrero de 2027 · faltan 89 días · 2 pantallas a la vez|Actualizar Premium ahora|Se actualiza sola en segundo plano varias veces al día|Cambiar de perfil|Ahora: Atz|Acerca de FitoTV|Versión 1.0.0 · OK para buscar actualizaciones|
+Editar: Editar Premium|Cambia el nombre o los datos de tu proveedor. Si cambian los datos, revisamos que abra antes de guardar.|Con tu celular|Lo más fácil|Escanea el QR con la cámara de tu celular.|Ahí pegas tu lista y aparece aquí sola.|O abre esta dirección en el navegador:|http://10.0.2.16:8090|Tu celular y la tele tienen que estar en la misma red Wi-Fi.|Aquí, con el control|Con el teclado de la tele, tarda un poco más.|Enlace|Usuario y contraseña|Premium|http://10.0.2.2:8769|prueba|••••|Guardar cambios|
+Guardado: Editar Premium|Cambia el nombre o los datos de tu proveedor. Si cambian los datos, revisamos que abra antes de guardar.|Con tu celular|Lo más fácil|Escanea el QR con la cámara de tu celular.|Ahí pegas tu lista y aparece aquí sola.|O abre esta dirección en el navegador:|http://10.0.2.16:8090|Tu celular y la tele tienen que estar en la misma red Wi-Fi.|Aquí, con el control|Con el teclado de la tele, tarda un poco más.|Enlace|Usuario y contraseña|http://10.0.2.2:8769|prueba|••••|Guardar cambios|Cambios guardados|Premium trae 145 canales y programas.|Regresar|
+guía del proveedor: 0 canales; sin guía: 13
+guía pública: 11 de 13 canales en 3079 ms
+canal=HBO Family SD: decodificador OMX.google.aac.decoder
+canal=HBO Family SD: sonido audio/mp4a-latm 1 canales 48000 Hz
+canal=HBO Family SD: ya suena
+canal=ESPN 2 HD: decodificador OMX.google.aac.decoder
+canal=ESPN 2 HD: sonido audio/mp4a-latm 1 canales 48000 Hz
+canal=ESPN 2 HD: ya suena
+canal=FOX Sports: decodificador OMX.google.aac.decoder
+canal=FOX Sports: sonido audio/mp4a-latm 1 canales 48000 Hz
+canal=FOX Sports: ya suena
+canal=TUDN: decodificador OMX.google.aac.decoder
+canal=TUDN: sonido audio/mp4a-latm 1 canales 48000 Hz
+canal=TUDN: ya suena
+canal=Película número 120 (2002): decodificador OMX.google.aac.decoder
+canal=Película número 120 (2002): sonido audio/mp4a-latm 1 canales 48000 Hz
+canal=Película número 120 (2002): ya suena

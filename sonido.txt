@@ -1,0 +1,24 @@
+Canales de prueba: aac.ts ac3.ts eac3.ts mp2.ts 
+--- Lo que dice FitoTV del sonido de cada canal ---
+canal=Sonido aac: decodificador OMX.google.aac.decoder
+canal=Sonido aac: sonido audio/mp4a-latm 1 canales 48000 Hz
+canal=Sonido aac: ya suena
+canal=Sonido ac3: decodificador ffmpegLavc60.3.100-ac3
+canal=Sonido ac3: sonido audio/ac3 1 canales 48000 Hz
+canal=Sonido ac3: ya suena
+canal=Sonido eac3: decodificador ffmpegLavc60.3.100-eac3
+canal=Sonido eac3: sonido audio/eac3 1 canales 48000 Hz
+canal=Sonido eac3: ya suena
+canal=Sonido mp2: decodificador ffmpegLavc60.3.100-mp3
+canal=Sonido mp2: sonido audio/mpeg-L2 1 canales 48000 Hz
+canal=Sonido mp2: ya suena
+--- Errores del reproductor ---
+11-28 09:30:13.600  6948  7017 E ExoPlayerImplInternal: Playback error
+11-28 09:30:13.600  6948  7017 E ExoPlayerImplInternal:   androidx.media3.exoplayer.ExoPlaybackException: Source error
+11-28 09:30:13.600  6948  7017 E ExoPlayerImplInternal:       at androidx.media3.exoplayer.ExoPlayerImplInternal.handleIoException(ExoPlayerImplInternal.java:737)
+11-28 09:30:13.600  6948  7017 E ExoPlayerImplInternal:   Caused by: androidx.media3.datasource.HttpDataSource$InvalidResponseCodeException: Response code: 404
+--- Resumen ---
+aac: SUENA (decodificador: OMX.google.aac.decoder)
+ac3: SUENA (decodificador: ffmpegLavc60.3.100-ac3)
+eac3: SUENA (decodificador: ffmpegLavc60.3.100-eac3)
+mp2: SUENA (decodificador: ffmpegLavc60.3.100-mp3)

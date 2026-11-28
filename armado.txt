@@ -1,0 +1,69 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preGithubDebugBuild UP-TO-DATE
+> Task :app:generateGithubDebugBuildConfig FROM-CACHE
+> Task :app:generateGithubDebugResValues FROM-CACHE
+> Task :app:checkGithubDebugAarMetadata
+> Task :app:mapGithubDebugSourceSetPaths
+> Task :app:generateGithubDebugResources
+> Task :app:packageGithubDebugResources
+> Task :app:createGithubDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksGithubDebug FROM-CACHE
+> Task :app:parseGithubDebugLocalResources
+> Task :app:mergeGithubDebugResources
+> Task :app:processGithubDebugMainManifest
+> Task :app:processGithubDebugManifest
+> Task :app:javaPreCompileGithubDebug FROM-CACHE
+> Task :app:preGithubDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileGithubDebugUnitTest FROM-CACHE
+> Task :app:processGithubDebugManifestForPackage
+> Task :app:mergeGithubDebugNativeDebugMetadata NO-SOURCE
+> Task :app:mergeGithubDebugShaders
+> Task :app:compileGithubDebugShaders NO-SOURCE
+> Task :app:generateGithubDebugAssets UP-TO-DATE
+> Task :app:mergeGithubDebugAssets
+> Task :app:compressGithubDebugAssets FROM-CACHE
+> Task :app:checkGithubDebugDuplicateClasses
+> Task :app:processGithubDebugResources
+> Task :app:desugarGithubDebugFileDependencies
+> Task :app:compileGithubDebugKotlin
+> Task :app:mergeExtDexGithubDebug
+
+> Task :app:compileGithubDebugKotlin
+w: file:///home/runner/work/fitotv/fitotv/app/src/main/java/com/fitotv/ui/AppViewModel.kt:423:45 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/fitotv/fitotv/app/src/main/java/com/fitotv/ui/AppViewModel.kt:426:114 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/fitotv/fitotv/app/src/main/java/com/fitotv/ui/screens/Others.kt:176:92 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/fitotv/fitotv/app/src/main/java/com/fitotv/ui/screens/Others.kt:677:58 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/fitotv/fitotv/app/src/main/java/com/fitotv/ui/screens/Player.kt:625:30 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+
+> Task :app:compileGithubDebugJavaWithJavac
+> Task :app:processGithubDebugJavaRes
+> Task :app:bundleGithubDebugClassesToRuntimeJar
+> Task :app:bundleGithubDebugClassesToCompileJar
+> Task :app:dexBuilderGithubDebug
+> Task :app:mergeGithubDebugGlobalSynthetics FROM-CACHE
+> Task :app:mergeLibDexGithubDebug FROM-CACHE
+> Task :app:mergeGithubDebugJniLibFolders
+> Task :app:mergeGithubDebugNativeLibs
+
+> Task :app:stripGithubDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so, libffmpegJNI.so.
+
+> Task :app:mergeProjectDexGithubDebug
+> Task :app:mergeGithubDebugJavaResource
+> Task :app:compileGithubDebugUnitTestKotlin
+> Task :app:validateSigningGithubDebug
+> Task :app:compileGithubDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processGithubDebugUnitTestJavaRes
+> Task :app:testGithubDebugUnitTest
+> Task :app:writeGithubDebugAppMetadata
+> Task :app:writeGithubDebugSigningConfigVersions
+> Task :app:packageGithubDebug
+> Task :app:createGithubDebugApkListingFileRedirect
+> Task :app:assembleGithubDebug
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1795857789155.json
+
+BUILD SUCCESSFUL in 2m 18s
+43 actionable tasks: 35 executed, 8 from cache
