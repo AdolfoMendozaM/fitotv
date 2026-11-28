@@ -33,9 +33,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -73,9 +80,12 @@ fun TvTextField(
     var editing by remember { mutableStateOf(false) }
     var hadFocus by remember { mutableStateOf(false) }
     var returnFocus by remember { mutableStateOf(false) }
+    // Hacia dónde seguir después de cerrar el campo con una flecha.
+    var pendingMove by remember { mutableStateOf<FocusDirection?>(null) }
     val editFr = remember { FocusRequester() }
     val boxFr = focusRequester ?: remember { FocusRequester() }
     val kb = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val shape = RoundedCornerShape(14.dp)
 
     if (!editing) {
@@ -108,6 +118,11 @@ fun TvTextField(
                 delay(50)
                 runCatching { boxFr.requestFocus() }
                 returnFocus = false
+                pendingMove?.let { dir ->
+                    delay(30)
+                    focusManager.moveFocus(dir)
+                    pendingMove = null
+                }
             }
         }
     } else {
@@ -124,6 +139,23 @@ fun TvTextField(
             modifier = modifier
                 .width(width)
                 .height(60.dp)
+                // Con el teclado cerrado, las flechas del control salen del campo hacia el siguiente.
+                // Antes se quedaban atrapadas adentro y todo lo que escribías caía en el mismo campo.
+                .onPreviewKeyEvent { e ->
+                    if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    val dir = when (e.key) {
+                        Key.DirectionDown -> FocusDirection.Down
+                        Key.DirectionUp -> FocusDirection.Up
+                        Key.DirectionLeft -> FocusDirection.Left
+                        Key.DirectionRight -> FocusDirection.Right
+                        else -> return@onPreviewKeyEvent false
+                    }
+                    kb?.hide()
+                    pendingMove = dir
+                    editing = false
+                    returnFocus = true
+                    true
+                }
                 .focusRequester(editFr)
                 .onFocusChanged {
                     // Si el foco se va a otro lado (cerraste el teclado con Atrás y bajaste), se deja ir:
