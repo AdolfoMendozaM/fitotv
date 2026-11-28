@@ -8,6 +8,7 @@ get.php (la lista M3U equivalente, con un renglón por episodio) y xmltv.php (gu
 Todo se genera al vuelo y se manda por partes para no llenar la memoria de la compu.
 """
 import base64
+import os
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -18,10 +19,31 @@ LIVE = int(sys.argv[2]) if len(sys.argv) > 2 else 25000
 VOD = int(sys.argv[3]) if len(sys.argv) > 3 else 120000
 SERIES = int(sys.argv[4]) if len(sys.argv) > 4 else 15000
 SEASONS, EPISODES = 3, 8
+# Modo "realista": pocos canales con los nombres disfrazados que mandan algunos proveedores
+# ("CINE | *HBO* F@MILY SD"), grupos con emojis y videos de verdad para reproducir.
+REAL = os.environ.get("FALSO_MODO") == "realista"
+MEDIA = os.environ.get("FALSO_MEDIA", "/tmp/sonido")
+REAL_LIVE = [
+    ("⭐CINE PREMIUM", ["CINE | *HBO* F@MILY SD", "CINE | *HBÖ* 2 HD", "CINE | *C1NEMAX* HD", "CINE | A&E FHD",
+                        "CINE | STAR CHANNEL HD", "CINE | TNT SERIES FHD", "CINE | WARNER FHD", "CINE | *HBO* HD"]),
+    ("⭐DƏPORTES PE", ["DEPORTES | ESPN 2 HD", "DEPORTES | FOX SPORTS", "DEPORTES | TUDN"]),
+    ("✨ COPA LIBERTADORES 2026 ✨", ["COPA | PARTIDO 1", "COPA | PARTIDO 2"]),
+]
+REAL_VOD = ["🎬 ACCIÓN", "⭐ TERROR ⭐", "ESTRENOS 2026 🔥", "COMEDIA"]
+REAL_SER = ["⭐ SERIES NETFLIX", "ANIME 🔥"]
+
+if REAL:
+    LIVE = sum(len(c[1]) for c in REAL_LIVE)
+    VOD = 30 * len(REAL_VOD)
+    SERIES = 6 * len(REAL_SER)
 
 LIVE_CATS = ["Noticias", "Deportes", "Infantil", "Cine", "Música", "México", "Documentales", "Novelas"] + [f"Grupo {i}" for i in range(1, 293)]
 VOD_CATS = [f"Películas {g}" for g in ["Acción", "Comedia", "Terror", "Drama", "Animadas", "Estrenos 2026"]] + [f"Cine {i}" for i in range(1, 195)]
 SER_CATS = [f"Series {g}" for g in ["Paramount", "Acción", "Policiales", "Comedia", "Anime", "Novelas"]] + [f"Series {i}" for i in range(1, 95)]
+if REAL:
+    LIVE_CATS = [c[0] for c in REAL_LIVE]
+    VOD_CATS = REAL_VOD
+    SER_CATS = REAL_SER
 
 
 def cats(names):
@@ -62,7 +84,7 @@ class H(BaseHTTPRequestHandler):
                 self.start()
                 exp = int(time.time()) + 90 * 86400
                 self.wfile.write(('{"user_info":{"username":"prueba","auth":1,"status":"Active","exp_date":"%d",'
-                                  '"allowed_output_formats":["m3u8","ts"]},"server_info":{"url":"falso","port":"%d"}}' % (exp, PORT)).encode())
+                                  '"max_connections":"2","active_cons":"0","is_trial":"0","allowed_output_formats":["m3u8","ts"]},"server_info":{"url":"falso","port":"%d"}}' % (exp, PORT)).encode())
             elif a == "get_live_categories":
                 self.start(); self.wfile.write(cats(LIVE_CATS).encode())
             elif a == "get_vod_categories":
@@ -85,7 +107,7 @@ class H(BaseHTTPRequestHandler):
                 for s in range(1, SEASONS + 1):
                     items = ",".join(
                         f'{{"id":"{sid * 100 + s * 10 + e}","episode_num":{e},"title":"Serie {sid} S{s:02d} E{e:02d} - Capítulo {e}",'
-                        f'"container_extension":"mp4","info":{{"duration":"00:42:00"}}}}'
+                        f'"container_extension":"{"mkv" if REAL else "mp4"}","info":{{"duration":"00:42:00"}}}}'
                         for e in range(1, EPISODES + 1))
                     eps.append(f'"{s}":[{items}]')
                 seasons = ",".join(f'{{"season_number":{s},"name":"Season {s}"}}' for s in range(1, SEASONS + 1))
@@ -119,11 +141,60 @@ class H(BaseHTTPRequestHandler):
                                  f'<title>Programa {h} del canal {c}</title><desc>Descripción</desc></programme>')
             parts.append("</tv>")
             self.wfile.write("".join(parts).encode())
+        elif u.path.startswith(("/live/", "/movie/", "/series/")) or (REAL and u.path.count("/") == 3):
+            self.media(u.path)
         else:
             self.send_response(404)
             self.end_headers()
 
+    def media(self, path):
+        """Videos de prueba: los canales tocan un .ts y las películas y episodios un .mkv con dos idiomas y subtítulos."""
+        name = "pista.mkv" if path.startswith(("/movie/", "/series/")) else "aac.ts"
+        f = os.path.join(MEDIA, name)
+        if not os.path.exists(f):
+            self.send_response(404)
+            self.end_headers()
+            return
+        size = os.path.getsize(f)
+        start, end = 0, size - 1
+        rng = self.headers.get("Range")
+        if rng and rng.startswith("bytes="):
+            a, _, b = rng[6:].partition("-")
+            start = int(a) if a else 0
+            end = int(b) if b else size - 1
+            self.send_response(206)
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        else:
+            self.send_response(200)
+        self.send_header("Content-Type", "video/x-matroska" if name.endswith(".mkv") else "video/mp2t")
+        self.send_header("Content-Length", str(end - start + 1))
+        self.send_header("Accept-Ranges", "bytes")
+        self.end_headers()
+        try:
+            with open(f, "rb") as fh:
+                fh.seek(start)
+                left = end - start + 1
+                while left > 0:
+                    chunk = fh.read(min(65536, left))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
     def live_items(self):
+        if REAL:
+            yield "["
+            i = 0
+            for ci, (cat, names) in enumerate(REAL_LIVE):
+                for n in names:
+                    i += 1
+                    sep = "," if i > 1 else ""
+                    yield (f'{sep}{{"num":{i},"name":"{n}","stream_type":"live","stream_id":{i},"stream_icon":"",'
+                           f'"epg_channel_id":"","added":"1700000000","category_id":"{ci + 1}","tv_archive":0}}')
+            yield "]"
+            return
         yield "["
         for i in range(1, LIVE + 1):
             cat = (i % len(LIVE_CATS)) + 1
@@ -138,7 +209,7 @@ class H(BaseHTTPRequestHandler):
             cat = (i % len(VOD_CATS)) + 1
             sep = "," if i > 1 else ""
             yield (f'{sep}{{"num":{i},"name":"Película número {i} ({1990 + i % 36})","stream_type":"movie","stream_id":{100000 + i},'
-                   f'"stream_icon":"","rating":"7.1","added":"{1700000000 + i * 60}","category_id":"{cat}","container_extension":"mp4"}}')
+                   f'"stream_icon":"","rating":"7.1","added":"{1700000000 + i * 60}","category_id":"{cat}","container_extension":"{"mkv" if REAL else "mp4"}"}}')
         yield "]"
 
     def series_items(self):

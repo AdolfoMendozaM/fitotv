@@ -17,8 +17,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -41,11 +48,20 @@ private val navItems = listOf(
     NavItem(Tab.SEARCH, "Buscar", Icons.SEARCH, Screen.Search),
 )
 
-/** Menú lateral de las pantallas principales, como en el diseño. */
+/**
+ * Menú lateral de las pantallas principales, como en el diseño.
+ *
+ * El menú solo se activa con la flecha izquierda: subir o bajar dentro de la pantalla nunca salta
+ * al menú (antes, al llegar arriba o abajo de una lista, el foco se iba al avatar o a "Guía").
+ * Al entrar al menú el foco cae en la sección donde estás, y al volver a la derecha regresa a
+ * lo último que tenías elegido.
+ */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun MainScaffold(vm: AppViewModel, tab: Tab, content: @Composable BoxScope.() -> Unit) {
     val d by vm.data.collectAsState()
     val profile = vm.profile(d)
+    val current = remember { FocusRequester() }
     Row(
         Modifier
             .fillMaxSize()
@@ -57,6 +73,8 @@ fun MainScaffold(vm: AppViewModel, tab: Tab, content: @Composable BoxScope.() ->
                 .fillMaxHeight()
                 .background(Fc.Panel)
                 .border(width = 1.dp, color = Fc.Line, shape = RoundedCornerShape(0.dp))
+                .focusProperties { enter = { current } }
+                .focusGroup()
                 .padding(vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -81,12 +99,12 @@ fun MainScaffold(vm: AppViewModel, tab: Tab, content: @Composable BoxScope.() ->
             }
             Gap(h = 26.dp)
             navItems.forEach { item ->
-                RailButton(item.label, item.icon, selected = item.tab == tab) {
+                RailButton(item.label, item.icon, selected = item.tab == tab, fr = if (item.tab == tab) current else null) {
                     if (item.tab != tab) vm.openTab(item.screen)
                 }
             }
             Box(Modifier.weight(1f))
-            RailButton("Ajustes", Icons.SETTINGS, selected = tab == Tab.SETTINGS) {
+            RailButton("Ajustes", Icons.SETTINGS, selected = tab == Tab.SETTINGS, fr = if (tab == Tab.SETTINGS) current else null) {
                 if (tab != Tab.SETTINGS) vm.openTab(Screen.Settings)
             }
         }
@@ -94,6 +112,13 @@ fun MainScaffold(vm: AppViewModel, tab: Tab, content: @Composable BoxScope.() ->
             Modifier
                 .weight(1f)
                 .fillMaxHeight()
+                .focusProperties {
+                    exit = { dir ->
+                        if (dir == FocusDirection.Up || dir == FocusDirection.Down) FocusRequester.Cancel else FocusRequester.Default
+                    }
+                }
+                .focusRestorer()
+                .focusGroup()
         ) {
             content()
         }
@@ -101,9 +126,10 @@ fun MainScaffold(vm: AppViewModel, tab: Tab, content: @Composable BoxScope.() ->
 }
 
 @Composable
-private fun RailButton(label: String, icon: String, selected: Boolean, onClick: () -> Unit) {
+private fun RailButton(label: String, icon: String, selected: Boolean, fr: FocusRequester? = null, onClick: () -> Unit) {
     FocusBox(
         onClick = onClick,
+        focusRequester = fr,
         modifier = Modifier.size(72.dp, 64.dp),
         bg = if (selected) Fc.Azul else Color.Transparent,
         focusedBg = if (selected) Fc.Azul else Fc.S3,

@@ -182,8 +182,7 @@ private fun GuideContent(vm: AppViewModel, channels: List<Channel>, groupName: S
                     itemsIndexed(channels, key = { _, c -> c.id }) { i, ch ->
                         LaunchedEffect(ch.id) { vm.wantEpg(ch) }
                         val progs = remember(vm.epg, ch.id) {
-                            if (ch.tvgId.isBlank()) emptyList()
-                            else vm.epg[ch.tvgId.lowercase()].orEmpty().filter { it.stop > winStart && it.start < winEnd }
+                            com.fitotv.data.EpgRepository.programmesOf(vm.epg, ch).orEmpty().filter { it.stop > winStart && it.start < winEnd }
                         }
                         GuideRow(
                             ch = ch,

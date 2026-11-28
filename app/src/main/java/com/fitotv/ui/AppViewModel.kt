@@ -37,7 +37,7 @@ sealed interface Screen {
     data object Splash : Screen
     data object Tutorial : Screen
     data class CreateProfile(val firstTime: Boolean, val editId: String? = null) : Screen
-    data class AddList(val firstTime: Boolean) : Screen
+    data class AddList(val firstTime: Boolean, val editId: String? = null) : Screen
     data object Profiles : Screen
     data object Hola : Screen
     data object Home : Screen
@@ -272,7 +272,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         epg = epgRepo.load(list.id)
         lastEpgAt = epgRepo.savedAt(list.id)
         val last = profileData().lastGroup[list.id]
-        selectedGroup = groups.firstOrNull { it.name == last }?.name ?: groups.firstOrNull()?.name
+        val lastClean = last?.let { com.fitotv.data.NameText.cleanGroup(it) }
+        selectedGroup = if (last == FAVORITES && profileData().favorites.isNotEmpty()) FAVORITES
+        else groups.firstOrNull { it.name == last || it.name == lastClean }?.name ?: groups.firstOrNull()?.name
         loading = false
     }
 
@@ -370,18 +372,35 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** La guía se actualiza cada 12 horas o si todavía no hay; en segundo plano y con calma. */
+    /**
+     * La guía se actualiza cada 12 horas o si todavía no hay; en segundo plano y con calma. Las
+     * listas enormes piden la guía del proveedor canal por canal, pero también usan la pública.
+     */
     private fun refreshEpgIfOld(list: Playlist) {
-        if (shortEpgCreds != null) return
-        if (epg.isNotEmpty() && System.currentTimeMillis() - lastEpgAt < 12 * 3600_000L) return
+        val fresh = list.epgVersion >= EPG_VERSION && lastEpgAt > 0 && System.currentTimeMillis() - lastEpgAt < 12 * 3600_000L
+        if (fresh && (epg.isNotEmpty() || shortEpgCreds != null)) return
         viewModelScope.launch {
             // Que primero se acomode la pantalla.
             kotlinx.coroutines.delay(15_000)
             if (activeList()?.id != list.id) return@launch
-            if (epgRepo.refresh(list, lib.live)) {
+            updateEpg(list, lib.live)
+        }
+    }
+
+    private var epgRunning = false
+
+    private suspend fun updateEpg(list: Playlist, channels: List<Channel>) {
+        if (epgRunning) return
+        epgRunning = true
+        try {
+            val short = shortEpgCreds != null
+            if (epgRepo.refresh(list, channels, providerGuide = !short)) {
                 lastEpgAt = System.currentTimeMillis()
-                if (activeList()?.id == list.id) epg = epgRepo.cached(list.id)
+                store.update { d -> d.copy(playlists = d.playlists.map { if (it.id == list.id) it.copy(epgVersion = EPG_VERSION) else it }) }
+                if (activeList()?.id == list.id) epg = if (short) epg + epgRepo.cached(list.id) else epgRepo.cached(list.id)
             }
+        } finally {
+            epgRunning = false
         }
     }
 
@@ -530,13 +549,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun refreshEpgInBackground(listId: String) {
-        if (shortEpgCreds != null) return
         viewModelScope.launch {
             val p = data.value.playlists.firstOrNull { it.id == listId } ?: return@launch
-            if (epgRepo.refresh(p, repo.channels(listId))) {
-                lastEpgAt = System.currentTimeMillis()
-                if (activeList()?.id == listId) epg = epgRepo.cached(listId)
-            }
+            updateEpg(p, repo.channels(listId))
         }
     }
 
@@ -608,14 +623,93 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         go(Screen.Player(channel.id, zap.map { it.id }, resume))
     }
 
-    suspend fun search(query: String): List<Channel> {
+    suspend fun search(query: String, kind: ContentKind? = null): List<Channel> {
         val l = lib
-        return withContext(Dispatchers.Default) { l.search(query) }
+        return withContext(Dispatchers.Default) { l.search(query, kind = kind) }
+    }
+
+    // ----- Cuenta del proveedor -----
+
+    /** Vuelve a preguntar al proveedor el vencimiento y las pantallas (al abrir Ajustes, máximo cada hora). */
+    fun refreshAccount(force: Boolean = false) {
+        val list = activeList() ?: return
+        if (repo.credsOf(list) == null) return
+        if (!force && System.currentTimeMillis() - list.accountCheckedAt < 3600_000L) return
+        viewModelScope.launch { repo.account(list) }
+    }
+
+    fun hasAccountInfo(list: Playlist): Boolean = repo.credsOf(list) != null
+
+    // ----- Editar una lista -----
+
+    /**
+     * Guarda los cambios de una lista. Si solo cambia el nombre se guarda al instante; si cambian el
+     * enlace o los datos de la cuenta, primero se revisa que abra y luego se reemplaza.
+     */
+    suspend fun editList(listId: String, paired: PairedList): Result<Int> {
+        val old = data.value.playlists.firstOrNull { it.id == listId } ?: return Result.failure(IOException("Esa lista ya no existe"))
+        val name = paired.name.trim().ifEmpty { old.name }
+        val updated = old.copy(
+            name = name,
+            kind = paired.kind,
+            url = if (paired.kind == ListKind.URL) paired.url.trim() else "",
+            server = if (paired.kind == ListKind.XTREAM) paired.server.trim() else "",
+            user = if (paired.kind == ListKind.XTREAM) paired.user.trim() else "",
+            pass = if (paired.kind == ListKind.XTREAM) paired.pass.ifEmpty { old.pass } else "",
+            epgUrl = if (paired.kind == old.kind && paired.url.trim() == old.url && paired.server.trim() == old.server) old.epgUrl else "",
+        )
+        val sameSource = updated.kind == old.kind && updated.url == old.url && updated.server == old.server &&
+            updated.user == old.user && updated.pass == old.pass
+        if (sameSource || old.kind == ListKind.FILE && paired.kind == ListKind.FILE) {
+            store.update { d -> d.copy(playlists = d.playlists.map { if (it.id == listId) it.copy(name = name) else it }) }
+            return Result.success(old.channelCount)
+        }
+        return try {
+            val before = repo.channels(listId)
+            val result = repo.fetch(updated)
+            if (result.channels.isEmpty()) throw IOException("La lista no trae canales. Revisa los datos.")
+            store.update { d -> d.copy(playlists = d.playlists.map { if (it.id == listId) updated.copy(lastError = null) else it }) }
+            repo.commit(updated, result)
+            val remap = HashMap<String, String>()
+            // Mismo canal con otro id (por ejemplo, de enlace a usuario y contraseña): favoritos y recientes siguen.
+            val newIds = result.channels.mapTo(HashSet()) { it.id }
+            val byKey = HashMap<String, String>()
+            result.channels.forEach { c -> streamKey(c)?.let { byKey.putIfAbsent(it, c.id) } }
+            before.forEach { o -> if (o.id !in newIds) streamKey(o)?.let { byKey[it] }?.let { remap[o.id] = it } }
+            if (remap.isNotEmpty()) keepFavoritesAndRecents(listId, remap)
+            if (activeList()?.id == listId) {
+                loadActive()
+                refreshEpgInBackground(listId)
+            }
+            Result.success(result.channels.size)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun streamKey(c: Channel): String? {
+        val last = c.url.substringBefore('?').substringAfterLast('/').substringBefore('.')
+        if (last.isEmpty() || !last.all { it.isDigit() }) return null
+        return c.kind.name + ":" + last
+    }
+
+    // ----- Subtítulos e idioma -----
+
+    fun setTrackPrefs(audioLang: String? = null, subLang: String? = null) {
+        store.update { d ->
+            d.copy(settings = d.settings.copy(
+                audioLang = audioLang ?: d.settings.audioLang,
+                subLang = subLang ?: d.settings.subLang,
+            ))
+        }
     }
 
     companion object {
         /** Grupo especial con los favoritos del perfil. */
         const val FAVORITES = "\u0000favoritos"
+
+        /** Versión de la guía guardada: 2 ya incluye la guía pública buscada por nombre. */
+        const val EPG_VERSION = 2
 
         fun fold(s: String): String = com.fitotv.data.Fold.fold(s)
 

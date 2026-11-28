@@ -39,7 +39,13 @@ jobs:
           ffmpeg -hide_banner -loglevel error $v -c:a ac3 -b:a 192k -f mpegts ac3.ts
           ffmpeg -hide_banner -loglevel error $v -c:a eac3 -b:a 192k -f mpegts eac3.ts
           ffmpeg -hide_banner -loglevel error $v -c:a mp2 -b:a 192k -f mpegts mp2.ts
-          ls -la
+          # Película de prueba con dos idiomas y dos subtítulos (fuera de la carpeta de canales de sonido).
+          mkdir -p /tmp/pistas && cd /tmp/pistas
+          printf '1\n00:00:01,000 --> 00:00:45,000\nHola, este es el subtítulo en español\n\n2\n00:00:45,500 --> 00:01:30,000\nSegunda parte en español\n' > es.srt
+          printf '1\n00:00:01,000 --> 00:00:45,000\nHello, this is the English subtitle\n\n2\n00:00:45,500 --> 00:01:30,000\nSecond part in English\n' > en.srt
+          ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x360:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -f lavfi -i sine=frequency=660:sample_rate=48000 -i es.srt -i en.srt -t 90 -map 0:v -map 1:a -map 2:a -map 3 -map 4 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -g 50 -c:a aac -b:a 96k -c:s srt -metadata:s:a:0 language=spa -metadata:s:a:1 language=eng -metadata:s:s:0 language=spa -metadata:s:s:1 language=eng pista.mkv
+          cp /tmp/sonido/aac.ts /tmp/pistas/aac.ts
+          ls -la /tmp/sonido /tmp/pistas
 
       - name: Activar aceleración
         run: |
@@ -56,7 +62,7 @@ jobs:
           profile: tv_1080p
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: if [ "${GITHUB_REF_NAME#prueba-audio}" != "$GITHUB_REF_NAME" ]; then bash .github/scripts/sonido.sh; else bash .github/scripts/recorrido.sh && bash .github/scripts/sonido.sh && bash .github/scripts/lista-grande.sh; fi
+          script: if [ "${GITHUB_REF_NAME#prueba-audio}" != "$GITHUB_REF_NAME" ]; then bash .github/scripts/sonido.sh; elif [ "${GITHUB_REF_NAME#prueba-funciones}" != "$GITHUB_REF_NAME" ]; then bash .github/scripts/funciones.sh; else bash .github/scripts/recorrido.sh && bash .github/scripts/sonido.sh && bash .github/scripts/funciones.sh && bash .github/scripts/lista-grande.sh; fi
 
       - uses: actions/upload-artifact@v4
         if: always()

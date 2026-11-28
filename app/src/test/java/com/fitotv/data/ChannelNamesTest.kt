@@ -90,4 +90,53 @@ class ChannelNamesTest {
         val input = listOf(ch(1, "≡P2 - Canal 5"), ch(2, "≡P2 - Latina"), ch(3, "≡P2 - TNT"))
         assertEquals(input.map { it.id }, ChannelNames.clean(input).map { it.id })
     }
+
+    @Test
+    fun quitaCategoriaYLetrasDisfrazadas() {
+        val names = listOf(
+            "CINE | *HBO* F@MILY SD", "CINE | *HBÖ* 2 HD", "CINE | *C1NEMAX* HD", "CINE | A&E FHD",
+            "CINE | STAR CHANNEL HD", "CINE | TNT SERIES FHD", "CINE | WARNER FHD",
+        )
+        val input = names.mapIndexed { i, n -> Channel(id = "c$i", num = i, name = n, url = "u$i", group = "⭐CINE PREMIUM") }
+        val out = ChannelNames.clean(input).map { it.name }
+        assertEquals(
+            listOf("HBO Family SD", "HBO 2 HD", "Cinemax HD", "A&E FHD", "Star Channel HD", "TNT Series FHD", "Warner FHD"),
+            out,
+        )
+    }
+
+    @Test
+    fun categoriaSinRelacionConElGrupoSeRespeta() {
+        val input = listOf("TNT | Series", "TNT | Novelas", "TNT | Sports").mapIndexed { i, n -> Channel(id = "c$i", num = i, name = n, url = "u$i", group = "Entretenimiento") }
+        assertEquals(listOf("TNT | Series", "TNT | Novelas", "TNT | Sports"), ChannelNames.clean(input).map { it.name })
+    }
+
+    @Test
+    fun nombresEnMayusculas() {
+        assertEquals("Canal de las Estrellas", NameText.prettyCase("CANAL DE LAS ESTRELLAS"))
+        assertEquals("ESPN 2 HD", NameText.prettyCase("ESPN 2 HD"))
+        assertEquals("CNN en Español", NameText.prettyCase("CNN EN ESPAÑOL"))
+        assertEquals("Discovery Kids", NameText.prettyCase("Discovery Kids"))
+    }
+
+    @Test
+    fun gruposSinEmojis() {
+        assertEquals("Cine Premium", NameText.cleanGroup("⭐CINE PREMIUM"))
+        assertEquals("Copa Libertadores y Sudamericana 2026", NameText.cleanGroup("✨ COPA LIBERTADORES Y SUDAMERICANA 2026 ✨"))
+        assertEquals("Eventos UFC", NameText.cleanGroup("⭐Eventos UFC ⭐"))
+        assertEquals("Fútbol Chile", NameText.cleanGroup("⚽ FÚTBOL CHILE"))
+        assertEquals("Deportes PE", NameText.cleanGroup("⭐DƏPORTES PE"))
+        assertEquals("Películas Acción", NameText.cleanGroup("Películas Acción"))
+        assertEquals("Terror", NameText.cleanGroup("🎬 TERROR 🔥"))
+    }
+
+    @Test
+    fun clavesDeGuiaPorNombre() {
+        assertEquals("hbo family", EpgNames.key("HBO Family SD"))
+        assertEquals(EpgNames.key("Warner Channel"), EpgNames.key("Warner FHD"))
+        assertEquals(EpgNames.key("A&E"), EpgNames.key("A&E FHD"))
+        assertEquals("canal 5", EpgNames.key("Canal 5 HD"))
+        assertEquals("", EpgNames.key("123"))
+        assertEquals("cnn espanol", EpgNames.key("CNN en Español"))
+    }
 }

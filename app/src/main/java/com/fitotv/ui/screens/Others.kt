@@ -78,7 +78,7 @@ fun ListsScreen(vm: AppViewModel) {
         Modifier
             .fillMaxSize()
             .background(Fc.Noche)
-            .padding(start = 96.dp, top = 56.dp, end = 96.dp)
+            .padding(start = 72.dp, top = 56.dp, end = 48.dp)
     ) {
         Column {
             T("Listas de ${profile?.name ?: ""}", size = 46.sp, display = true, letterSpacing = (-1).sp)
@@ -93,7 +93,7 @@ fun ListsScreen(vm: AppViewModel) {
                                 if (l.id != active?.id) vm.setActiveList(l.id)
                                 vm.back()
                             },
-                            modifier = Modifier.size(700.dp, 88.dp),
+                            modifier = Modifier.size(600.dp, 88.dp),
                             focusRequester = if (l.id == active?.id || (active == null && i == 0)) firstFr else null,
                             bg = Fc.S1,
                             focusedBg = Fc.S3,
@@ -115,6 +115,7 @@ fun ListsScreen(vm: AppViewModel) {
                                 if (l.id == active?.id) Pill("Viendo")
                             }
                         }
+                        SmallAction(Icons.EDIT, "Editar") { vm.go(Screen.AddList(firstTime = false, editId = l.id)) }
                         SmallAction(Icons.REFRESH, "Actualizar") {
                             if (l.id != active?.id) vm.setActiveList(l.id) else vm.refreshActive(quietWhenSame = false)
                         }
@@ -129,7 +130,7 @@ fun ListsScreen(vm: AppViewModel) {
                 item(key = "agregar") {
                     FocusBox(
                         onClick = { vm.go(Screen.AddList(firstTime = false)) },
-                        modifier = Modifier.size(700.dp, 88.dp),
+                        modifier = Modifier.size(600.dp, 88.dp),
                         focusRequester = if (lists.isEmpty()) firstFr else null,
                         bg = Color.Transparent,
                         focusedBg = Fc.S2,
@@ -220,8 +221,9 @@ fun groupIcon(name: String): String {
 fun GroupsScreen(vm: AppViewModel) {
     val d by vm.data.collectAsState()
     val list = vm.activeList(d)
-    val groups = vm.groups
-    val total = groups.sumOf { it.count }
+    val favCount = remember(d) { vm.channelsOf(AppViewModel.FAVORITES).size }
+    val groups = if (favCount > 0) listOf(com.fitotv.ui.Group(AppViewModel.FAVORITES, favCount)) + vm.groups else vm.groups
+    val total = vm.groups.sumOf { it.count }
     val firstFr = rememberAutoFocus()
     Column(
         Modifier
@@ -231,7 +233,7 @@ fun GroupsScreen(vm: AppViewModel) {
     ) {
         T("Grupos de ${list?.name ?: ""}", size = 46.sp, display = true, letterSpacing = (-1).sp)
         Gap(h = 8.dp)
-        T("$total canales en ${groups.size} grupos. Elige uno para ver sus canales.", size = 20.sp, color = Fc.Muted)
+        T("$total canales en ${vm.groups.size} grupos. Elige uno para ver sus canales.", size = 20.sp, color = Fc.Muted)
         Gap(h = 28.dp)
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
@@ -241,6 +243,8 @@ fun GroupsScreen(vm: AppViewModel) {
         ) {
             itemsIndexed(groups, key = { _, g -> g.name }) { i, g ->
                 val selected = g.name == vm.selectedGroup
+                val fav = g.name == AppViewModel.FAVORITES
+                val label = if (fav) "Favoritos" else g.name
                 FocusBox(
                     onClick = {
                         vm.selectGroup(g.name)
@@ -258,10 +262,10 @@ fun GroupsScreen(vm: AppViewModel) {
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(if (selected) Fc.Azul else Fc.S3), contentAlignment = Alignment.Center) {
-                            Ico(groupIcon(g.name), 24.dp, Color.White)
+                            Ico(if (fav) Icons.STAR else groupIcon(g.name), 24.dp, if (fav) Fc.Menta else Color.White, fill = fav)
                         }
                         Column(Modifier.weight(1f)) {
-                            T(g.name, size = 18.sp, weight = FontWeight.SemiBold)
+                            T(label, size = 18.sp, weight = FontWeight.SemiBold, maxLines = 2, lineHeight = 22.sp)
                             T(if (g.count == 1) "1 canal" else "${g.count} canales", size = 14.sp, color = Fc.Muted)
                         }
                     }
@@ -275,6 +279,11 @@ fun GroupsScreen(vm: AppViewModel) {
 // Películas y series
 // ---------------------------------------------------------------------------
 
+/**
+ * Películas o series como en Netflix: arriba las categorías para brincar a una; abajo filas
+ * con lo que dejaste a medias, lo más nuevo y una fila por categoría. Al elegir una categoría
+ * se ve completa en cuadrícula.
+ */
 @Composable
 fun CatalogScreen(vm: AppViewModel, s: Screen.Catalog) {
     val d by vm.data.collectAsState()
@@ -284,10 +293,23 @@ fun CatalogScreen(vm: AppViewModel, s: Screen.Catalog) {
     val all = catalog.items
     val cats = catalog.cats
     var cat by rememberSaveable(s.kind) { mutableStateOf<String?>(null) }
-    val selectedCat = cat
-    val shown = if (selectedCat == null) all else catalog.byCat[selectedCat].orEmpty()
+    // Al elegir una categoría el foco baja a sus portadas (al regresar de una película no).
+    var jump by remember { mutableStateOf(false) }
+    fun pick(c: String?) {
+        cat = c
+        jump = c != null
+    }
     val recents = remember(d) { vm.profileData(d).recents.associateBy { it.channelId } }
-    val ef = rememberEntryFocus(vm, "catalog-${s.kind}", s.kind)
+    val continueItems = remember(d, vm.byId, s.kind) {
+        vm.recents(kindLive = false).filter { (ch, _) -> ch.kind == s.kind }
+    }
+    val key = "catalog-${s.kind}"
+    val ef = rememberEntryFocus(vm, key, s.kind)
+
+    fun open(ch: Channel, itemKey: String) {
+        vm.markReturn(key, itemKey)
+        if (ch.isShow) vm.go(Screen.Series(ch.id)) else vm.play(ch, listOf(ch))
+    }
 
     MainScaffold(vm, tab) {
         if (all.isEmpty()) {
@@ -301,27 +323,122 @@ fun CatalogScreen(vm: AppViewModel, s: Screen.Catalog) {
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(start = 48.dp, top = 36.dp, end = 48.dp)
+                .padding(start = 52.dp, top = 36.dp)
         ) {
-            SectionTitle(title, "${all.size} en ${vm.activeList(d)?.name ?: "tu lista"}")
-            Gap(h = 12.dp)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(8.dp)) {
-                item(key = "todas") { CatChip("Todas", cat == null) { cat = null } }
-                items(cats, key = { it }) { c -> CatChip(c, cat == c) { cat = c } }
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                T(title, size = 40.sp, display = true, letterSpacing = (-0.5).sp)
+                T("${all.size} en ${vm.activeList(d)?.name ?: "tu lista"}", size = 16.sp, color = Fc.Muted, modifier = Modifier.padding(bottom = 6.dp))
             }
-            Gap(h = 8.dp)
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(6),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 40.dp),
+            Gap(h = 14.dp)
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(start = 4.dp, top = 8.dp, end = 56.dp, bottom = 8.dp),
             ) {
-                itemsIndexed(shown, key = { _, c -> c.id }) { i, ch ->
-                    PosterCard(ch, recents[ch.id]?.let { vodFraction(it) } ?: 0f, ef.of(ch.id, i == 0)) {
-                        vm.markReturn("catalog-${s.kind}", ch.id)
-                        if (ch.isShow) vm.go(Screen.Series(ch.id)) else vm.play(ch, listOf(ch))
+                item(key = "inicio") { CatChip("Todo", cat == null) { pick(null) } }
+                items(cats, key = { it }) { c -> CatChip(c, cat == c) { pick(c) } }
+            }
+            Gap(h = 10.dp)
+            val selected = cat
+            if (selected == null) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(26.dp),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 48.dp),
+                ) {
+                    var firstUsed = false
+                    fun isFirst(): Boolean = if (!firstUsed) { firstUsed = true; true } else false
+                    if (continueItems.isNotEmpty()) {
+                        val first = isFirst()
+                        item(key = "continua") {
+                            PosterRow("Continúa", null) {
+                                itemsIndexed(continueItems, key = { _, p -> "c" + p.first.id }) { i, (ch, r) ->
+                                    PosterCard(ch, vodFraction(r), ef.of("c:" + ch.id, first && i == 0)) { open(ch, "c:" + ch.id) }
+                                }
+                            }
+                        }
+                    }
+                    val newest = all.take(24)
+                    val firstNew = isFirst()
+                    item(key = "nuevo") {
+                        PosterRow("Lo más nuevo", null) {
+                            itemsIndexed(newest, key = { _, c -> "n" + c.id }) { i, ch ->
+                                PosterCard(ch, recents[ch.id]?.let { vodFraction(it) } ?: 0f, ef.of("n:" + ch.id, firstNew && i == 0)) { open(ch, "n:" + ch.id) }
+                            }
+                        }
+                    }
+                    items(cats, key = { "row:$it" }) { c ->
+                        val inCat = catalog.byCat[c].orEmpty()
+                        PosterRow(c, if (inCat.size == 1) "1 título" else "${inCat.size} títulos") {
+                            itemsIndexed(inCat.take(20), key = { _, ch -> "r" + ch.id }) { _, ch ->
+                                PosterCard(ch, recents[ch.id]?.let { vodFraction(it) } ?: 0f, ef.of("r:$c:" + ch.id, false)) { open(ch, "r:$c:" + ch.id) }
+                            }
+                            if (inCat.size > 20) {
+                                item(key = "todo") { SeeAllCard(inCat.size) { pick(c) } }
+                            }
+                        }
                     }
                 }
+            } else {
+                val shown = catalog.byCat[selected].orEmpty()
+                val gridFirst = remember { androidx.compose.ui.focus.FocusRequester() }
+                LaunchedEffect(selected, jump) {
+                    if (jump) {
+                        kotlinx.coroutines.delay(80)
+                        runCatching { gridFirst.requestFocus() }
+                        jump = false
+                    }
+                }
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    T(selected, size = 24.sp, display = true)
+                    T(if (shown.size == 1) "1 título" else "${shown.size} títulos", size = 15.sp, color = Fc.Muted, modifier = Modifier.padding(bottom = 3.dp))
+                }
+                Gap(h = 10.dp)
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(140.dp),
+                    horizontalArrangement = Arrangement.spacedBy(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(22.dp),
+                    contentPadding = PaddingValues(start = 6.dp, top = 8.dp, end = 52.dp, bottom = 48.dp),
+                ) {
+                    itemsIndexed(shown, key = { _, c -> c.id }) { i, ch ->
+                        val back = ef.of("g:" + ch.id, false)
+                        PosterCard(ch, recents[ch.id]?.let { vodFraction(it) } ?: 0f, back ?: if (i == 0) gridFirst else null) { open(ch, "g:" + ch.id) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Una fila de portadas con su título, como en Netflix. */
+@Composable
+private fun PosterRow(title: String, sub: String?, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+    Column {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(start = 4.dp)) {
+            T(title, size = 21.sp, display = true)
+            if (sub != null) T(sub, size = 14.sp, color = Fc.Muted, modifier = Modifier.padding(bottom = 2.dp))
+        }
+        Gap(h = 10.dp)
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(start = 6.dp, top = 6.dp, end = 56.dp, bottom = 6.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun SeeAllCard(count: Int, onClick: () -> Unit) {
+    FocusBox(
+        onClick = onClick,
+        modifier = Modifier.size(140.dp, 210.dp),
+        bg = Color.Transparent,
+        focusedBg = Fc.S2,
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.fillMaxSize().border(2.dp, Fc.Line3, RoundedCornerShape(16.dp)), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Ico(Icons.GRID, 26.dp, Fc.Num)
+                T("Ver todo", size = 15.sp, weight = FontWeight.SemiBold)
+                T("$count títulos", size = 13.sp, color = Fc.Muted)
             }
         }
     }
@@ -332,22 +449,23 @@ private fun CatChip(name: String, selected: Boolean, onClick: () -> Unit) {
     FocusBox(
         onClick = onClick,
         modifier = Modifier.height(44.dp),
-        shape = RoundedCornerShape(22.dp),
-        radius = 22.dp,
-        bg = if (selected) Fc.Azul else Fc.S2,
-        focusedBg = if (selected) Fc.Azul else Fc.S3,
+        shape = RoundedCornerShape(12.dp),
+        radius = 12.dp,
+        bg = if (selected) Color.White else Fc.S2,
+        focusedBg = if (selected) Color.White else Fc.S3,
     ) {
-        Box(Modifier.height(44.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
-            T(name, size = 16.sp, weight = FontWeight.SemiBold, color = if (selected) Color.White else Fc.Muted2)
+        Box(Modifier.height(44.dp).padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
+            T(name, size = 16.sp, weight = FontWeight.Bold, color = if (selected) Fc.Noche else Fc.Muted2)
         }
     }
 }
 
+/** Portada vertical con el nombre abajo y, si la dejaste a medias, la barrita de avance. */
 @Composable
 private fun PosterCard(ch: Channel, progress: Float, fr: androidx.compose.ui.focus.FocusRequester?, onClick: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        FocusBox(onClick = onClick, focusRequester = fr, modifier = Modifier.fillMaxWidth().height(250.dp)) {
-            PosterArt(ch, Modifier.fillMaxSize(), fontSize = 34f)
+    Column(Modifier.width(140.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FocusBox(onClick = onClick, focusRequester = fr, modifier = Modifier.size(140.dp, 210.dp), radius = 12.dp, shape = RoundedCornerShape(12.dp)) {
+            PosterArt(ch, Modifier.fillMaxSize(), fontSize = 30f)
             if (progress > 0f) {
                 Box(
                     Modifier
@@ -360,7 +478,7 @@ private fun PosterCard(ch: Channel, progress: Float, fr: androidx.compose.ui.foc
                 }
             }
         }
-        T(ch.name, size = 15.sp, weight = FontWeight.SemiBold, maxLines = 2, lineHeight = 20.sp)
+        T(ch.name, size = 14.sp, weight = FontWeight.SemiBold, maxLines = 1, color = Fc.Muted2)
     }
 }
 
@@ -368,57 +486,95 @@ private fun PosterCard(ch: Channel, progress: Float, fr: androidx.compose.ui.foc
 // Buscar
 // ---------------------------------------------------------------------------
 
+private val searchKinds = listOf<Pair<String, ContentKind?>>(
+    "Todo" to null,
+    "Canales" to ContentKind.LIVE,
+    "Películas" to ContentKind.MOVIE,
+    "Series" to ContentKind.SERIES,
+)
+
 @Composable
 fun SearchScreen(vm: AppViewModel) {
     var query by rememberSaveable { mutableStateOf("") }
+    var kindIdx by rememberSaveable { mutableStateOf(0) }
     var results by remember { mutableStateOf<List<Channel>>(emptyList()) }
     val ef = rememberEntryFocus(vm, "search")
+    val kind = searchKinds[kindIdx].second
     // La búsqueda corre fuera de la pantalla y espera a que dejes de escribir un momento.
-    LaunchedEffect(query, vm.lib) {
+    LaunchedEffect(query, kindIdx, vm.lib) {
         if (query.trim().length < 2) {
             results = emptyList()
             return@LaunchedEffect
         }
         kotlinx.coroutines.delay(180)
-        results = vm.search(query)
+        results = vm.search(query, kind)
     }
     MainScaffold(vm, Tab.SEARCH) {
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(start = 48.dp, top = 36.dp, end = 48.dp)
+                .padding(start = 52.dp, top = 36.dp, end = 52.dp)
         ) {
             T("Buscar", size = 40.sp, display = true)
             Gap(h = 16.dp)
-            TvTextField(query, { query = it }, "Canal, película o serie", width = 640.dp, focusRequester = ef.first)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                TvTextField(query, { query = it }, "Canal, película o serie", width = 520.dp, focusRequester = ef.first)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    searchKinds.forEachIndexed { i, (label, _) ->
+                        CatChip(label, i == kindIdx) { kindIdx = i }
+                    }
+                }
+            }
             Gap(h = 24.dp)
+            val what = when (kind) {
+                ContentKind.LIVE -> "canales"
+                ContentKind.MOVIE -> "películas"
+                ContentKind.SERIES -> "series"
+                null -> "resultados"
+            }
             when {
-                query.trim().length < 2 -> T("Escribe al menos dos letras. Presiona OK para abrir el teclado.", size = 18.sp, color = Fc.Muted)
-                results.isEmpty() -> T("No encontramos \"${query.trim()}\" en esta lista.", size = 18.sp, color = Fc.Muted)
+                query.trim().length < 2 -> T("Escribe al menos dos letras. Presiona OK para abrir el teclado y elige si buscas canales, películas o series.", size = 18.sp, color = Fc.Muted, maxLines = 2, lineHeight = 26.sp)
+                results.isEmpty() -> T("No encontramos $what con \"${query.trim()}\" en esta lista.", size = 18.sp, color = Fc.Muted)
                 else -> {
-                    SectionTitle("Resultados", "${results.size}")
+                    SectionTitle(what.replaceFirstChar { it.uppercase() }, "${results.size}")
                     Gap(h = 8.dp)
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(5),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 40.dp),
-                    ) {
-                        itemsIndexed(results, key = { _, c -> c.id }) { _, ch ->
-                            ChannelCard(
-                                ch,
-                                if (ch.kind == ContentKind.LIVE) vm.epgFor(ch).first else null,
-                                focusRequester = ef.of(ch.id, false),
-                                onClick = {
+                    if (kind == ContentKind.MOVIE || kind == ContentKind.SERIES) {
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(140.dp),
+                            horizontalArrangement = Arrangement.spacedBy(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(22.dp),
+                            contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 40.dp),
+                        ) {
+                            itemsIndexed(results, key = { _, c -> c.id }) { _, ch ->
+                                PosterCard(ch, 0f, ef.of(ch.id, false)) {
                                     vm.markReturn("search", ch.id)
-                                    when {
-                                        ch.isShow -> vm.go(Screen.Series(ch.id))
-                                        ch.kind == ContentKind.LIVE -> vm.play(ch, results.filter { it.kind == ContentKind.LIVE })
-                                        else -> vm.play(ch, listOf(ch))
-                                    }
-                                },
-                                onFocus = {},
-                            )
+                                    if (ch.isShow) vm.go(Screen.Series(ch.id)) else vm.play(ch, listOf(ch))
+                                }
+                            }
+                        }
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(5),
+                            horizontalArrangement = Arrangement.spacedBy(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(18.dp),
+                            contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 40.dp),
+                        ) {
+                            itemsIndexed(results, key = { _, c -> c.id }) { _, ch ->
+                                ChannelCard(
+                                    ch,
+                                    if (ch.kind == ContentKind.LIVE) vm.epgFor(ch).first else null,
+                                    focusRequester = ef.of(ch.id, false),
+                                    onClick = {
+                                        vm.markReturn("search", ch.id)
+                                        when {
+                                            ch.isShow -> vm.go(Screen.Series(ch.id))
+                                            ch.kind == ContentKind.LIVE -> vm.play(ch, results.filter { it.kind == ContentKind.LIVE })
+                                            else -> vm.play(ch, listOf(ch))
+                                        }
+                                    },
+                                    onFocus = {},
+                                )
+                            }
                         }
                     }
                 }
@@ -438,6 +594,7 @@ fun SettingsScreen(vm: AppViewModel) {
     val list = vm.activeList(d)
     val firstFr = rememberAutoFocus()
     var about by remember { mutableStateOf(false) }
+    LaunchedEffect(list?.id) { vm.refreshAccount() }
     MainScaffold(vm, Tab.SETTINGS) {
         Column(
             Modifier
@@ -472,6 +629,12 @@ fun SettingsScreen(vm: AppViewModel) {
             SettingRow("Mis listas", "${vm.listsOf(d).size} de ${profile?.name ?: "este perfil"}", onClick = { vm.go(Screen.Lists) }) {
                 T("Abrir", size = 16.sp, color = Fc.Muted)
             }
+            if (list != null && vm.hasAccountInfo(list)) {
+                val (sub, warn) = accountText(list)
+                SettingRow("Vigencia de tu cuenta de ${list.name}", sub, onClick = { vm.refreshAccount(force = true) }, subColor = if (warn) Fc.Ambar else Fc.Muted) {
+                    Ico(Icons.CLOCK, 24.dp, if (warn) Fc.Ambar else Fc.Menta)
+                }
+            }
             if (list != null) {
                 SettingRow("Actualizar ${list.name} ahora", "Se actualiza sola en segundo plano varias veces al día", onClick = { vm.refreshActive(quietWhenSame = false) }) {
                     Ico(Icons.REFRESH, 24.dp, Fc.Muted2)
@@ -498,12 +661,36 @@ fun SettingsScreen(vm: AppViewModel) {
     }
 }
 
+/** "Vence el 12 de enero de 2027 · faltan 45 días · 2 pantallas a la vez" y si hay que avisar. */
+private fun accountText(l: Playlist, now: Long = System.currentTimeMillis()): Pair<String, Boolean> {
+    if (l.accountCheckedAt == 0L) return "Preguntando a tu proveedor…" to false
+    val screens = when {
+        l.maxScreens == 1 -> " · 1 pantalla a la vez"
+        l.maxScreens > 1 -> " · ${l.maxScreens} pantallas a la vez"
+        else -> ""
+    }
+    val trial = if (l.trial) " · Cuenta de prueba" else ""
+    val status = l.accountStatus.lowercase()
+    if (status == "banned" || status == "disabled") return "Tu proveedor desactivó la cuenta" to true
+    if (l.expiresAt < 0) return "Sin fecha de vencimiento$screens$trial" to false
+    if (l.expiresAt == 0L) return "Tu proveedor no dice cuándo vence$screens" to false
+    val date = SimpleDateFormat("d 'de' MMMM 'de' yyyy", Locale("es", "MX")).format(Date(l.expiresAt))
+    val days = ((l.expiresAt - now) / 86_400_000L).toInt()
+    return when {
+        l.expiresAt <= now || status == "expired" -> "Venció el $date. Renuévala con tu proveedor$screens" to true
+        days == 0 -> "Vence hoy, $date$screens$trial" to true
+        days == 1 -> "Vence mañana, $date$screens$trial" to true
+        else -> "Vence el $date · faltan $days días$screens$trial" to (days <= 7)
+    }
+}
+
 @Composable
 private fun SettingRow(
     title: String,
     sub: String,
     onClick: () -> Unit,
     focusRequester: androidx.compose.ui.focus.FocusRequester? = null,
+    subColor: Color = Fc.Muted,
     trailing: @Composable () -> Unit,
 ) {
     FocusBox(
@@ -521,7 +708,7 @@ private fun SettingRow(
         ) {
             Column(Modifier.weight(1f)) {
                 T(title, size = 19.sp, weight = FontWeight.SemiBold)
-                T(sub, size = 15.sp, color = Fc.Muted)
+                T(sub, size = 15.sp, color = subColor)
             }
             trailing()
         }

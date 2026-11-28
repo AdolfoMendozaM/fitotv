@@ -86,7 +86,7 @@ fun typeLabel(kind: ContentKind) = when (kind) {
 }
 
 fun epgFor(epg: Map<String, List<Programme>>, ch: Channel): Pair<Programme?, Programme?> =
-    if (ch.tvgId.isBlank()) null to null else EpgRepository.nowNext(epg[ch.tvgId.lowercase()])
+    if (ch.kind != ContentKind.LIVE) null to null else EpgRepository.nowNext(EpgRepository.programmesOf(epg, ch))
 
 // ----- Tarjetas -----
 
@@ -150,6 +150,10 @@ fun VodCard(
     }
 }
 
+/**
+ * Un canal que viste hace poco: igual que las tarjetas de canal (logo grande y nombre), con
+ * cuándo lo viste arriba y, si hay guía, lo que están pasando ahora.
+ */
 @Composable
 fun RecentChannelCard(
     ch: Channel,
@@ -157,22 +161,51 @@ fun RecentChannelCard(
     visited: Long,
     onClick: () -> Unit,
     onFocus: () -> Unit,
-    width: Dp = 205.dp,
+    width: Dp = 224.dp,
     focusRequester: FocusRequester? = null,
 ) {
-    FocusBox(onClick = onClick, onFocus = onFocus, focusRequester = focusRequester, modifier = Modifier.size(width, 98.dp)) { f ->
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (ch.num > 0) T(ch.num.toString(), size = 24.sp, display = true, color = if (f) Color.White else Fc.Num)
-                T(ch.name, size = 15.sp, weight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                ChannelLogo(ch.name, ch.logo, width = 52.dp, height = 30.dp, corner = 7.dp, fontSize = 9f)
+    FocusBox(onClick = onClick, onFocus = onFocus, focusRequester = focusRequester, modifier = Modifier.size(width, 132.dp)) { f ->
+        Box(Modifier.fillMaxSize()) {
+            T(
+                visitedShort(visited),
+                size = 13.sp,
+                color = if (f) Color(0xFFDCE4FF) else Fc.Dim,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 12.dp, top = 8.dp),
+            )
+            ChannelArt(
+                ch.name,
+                ch.logo,
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 30.dp, start = 30.dp, end = 30.dp)
+                    .fillMaxWidth()
+                    .height(52.dp),
+            )
+            Column(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(start = 10.dp, end = 10.dp, bottom = 9.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                T(ch.name, size = 15.sp, weight = FontWeight.SemiBold, align = TextAlign.Center)
+                if (now != null) T(now.title, size = 12.sp, color = Fc.Muted, align = TextAlign.Center)
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.size(7.dp).clip(CircleShape).background(Fc.Menta))
-                T(now?.title ?: "En vivo", size = 14.sp, color = Fc.Muted2)
-            }
-            T(visitedAgo(visited), size = 13.sp, color = Fc.Dim)
         }
+    }
+}
+
+/** "Hace un momento", "Hace 3 min", "Ayer"… */
+fun visitedShort(at: Long, now: Long = System.currentTimeMillis()): String {
+    val min = (now - at) / 60000L
+    return when {
+        min < 2 -> "Hace un momento"
+        min < 60 -> "Hace $min min"
+        min < 24 * 60 -> "Hace ${min / 60} h"
+        min < 48 * 60 -> "Ayer"
+        else -> "Hace ${min / (24 * 60)} días"
     }
 }
 
@@ -191,7 +224,7 @@ fun ChannelCard(
     showGroup: Boolean = true,
     focusRequester: FocusRequester? = null,
 ) {
-    FocusBox(onClick = onClick, onFocus = onFocus, focusRequester = focusRequester, modifier = modifier.height(124.dp)) { f ->
+    FocusBox(onClick = onClick, onFocus = onFocus, focusRequester = focusRequester, modifier = modifier.height(128.dp)) { f ->
         Box(Modifier.fillMaxSize()) {
             Row(
                 Modifier

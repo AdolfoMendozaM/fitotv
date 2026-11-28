@@ -43,8 +43,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
 import com.fitotv.data.Channel
 import com.fitotv.data.ContentKind
 import com.fitotv.player.FitoPlayer
@@ -61,6 +69,7 @@ import com.fitotv.ui.components.Keycap
 import com.fitotv.ui.components.Pill
 import com.fitotv.ui.components.ProgressBar
 import com.fitotv.ui.components.Spinner
+import com.fitotv.ui.components.FocusBox
 import com.fitotv.ui.theme.Fc
 import com.fitotv.ui.theme.T
 import kotlinx.coroutines.delay
@@ -77,12 +86,54 @@ fun PlayerScreen(vm: AppViewModel, s: Screen.Player) {
     var buffering by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var retried by remember { mutableStateOf(false) }
+    var retryAt by remember { mutableLongStateOf(0L) }
     var playing by remember { mutableStateOf(false) }
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
     var digits by remember { mutableStateOf("") }
     val fr = remember { FocusRequester() }
     val isVod = current?.kind != null && current?.kind != ContentKind.LIVE
+    var tracks by remember { mutableStateOf(Tracks.EMPTY) }
+    var panel by remember { mutableStateOf(false) }
+    var attempts by remember { mutableIntStateOf(0) }
+    val audioOpts = remember(tracks) { trackOptions(tracks, C.TRACK_TYPE_AUDIO) }
+    val textOpts = remember(tracks) { trackOptions(tracks, C.TRACK_TYPE_TEXT) }
+    val hasOptions = audioOpts.size > 1 || textOpts.isNotEmpty()
+    val maxScreens = vm.activeList(d)?.maxScreens ?: 0
+
+    // El idioma y los subtítulos que elegiste la última vez se usan en todas las películas y series.
+    LaunchedEffect(Unit) {
+        val st = vm.data.value.settings
+        player.exo.trackSelectionParameters = player.exo.trackSelectionParameters.buildUpon().apply {
+            if (st.audioLang.isNotBlank()) setPreferredAudioLanguage(st.audioLang)
+            when {
+                st.subLang == "off" -> setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                st.subLang.isNotBlank() -> setPreferredTextLanguage(st.subLang)
+            }
+        }.build()
+    }
+
+    fun chooseAudio(o: TrackOption) {
+        player.exo.trackSelectionParameters = player.exo.trackSelectionParameters.buildUpon()
+            .setOverrideForType(TrackSelectionOverride(o.group.mediaTrackGroup, o.index))
+            .setPreferredAudioLanguage(o.format.language)
+            .build()
+        vm.setTrackPrefs(audioLang = o.format.language ?: "")
+    }
+
+    fun chooseText(o: TrackOption?) {
+        val b = player.exo.trackSelectionParameters.buildUpon()
+        if (o == null) {
+            b.clearOverridesOfType(C.TRACK_TYPE_TEXT).setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            vm.setTrackPrefs(subLang = "off")
+        } else {
+            b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                .setOverrideForType(TrackSelectionOverride(o.group.mediaTrackGroup, o.index))
+                .setPreferredTextLanguage(o.format.language)
+            vm.setTrackPrefs(subLang = o.format.language ?: "")
+        }
+        player.exo.trackSelectionParameters = b.build()
+    }
 
     fun saveProgress() {
         val ch = current ?: return
@@ -114,8 +165,11 @@ fun PlayerScreen(vm: AppViewModel, s: Screen.Player) {
     DisposableEffect(Unit) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
-                buffering = state == Player.STATE_BUFFERING
-                if (state == Player.STATE_READY) error = null
+                buffering = state == Player.STATE_BUFFERING || retryAt > 0
+                if (state == Player.STATE_READY) {
+                    error = null
+                    attempts = 0
+                }
                 if (state == Player.STATE_ENDED) {
                     val ch = current
                     if (ch != null && ch.kind != ContentKind.LIVE) {
@@ -133,10 +187,21 @@ fun PlayerScreen(vm: AppViewModel, s: Screen.Player) {
                 playing = isPlaying
             }
 
+            override fun onTracksChanged(t: Tracks) {
+                tracks = t
+            }
+
             override fun onPlayerError(e: PlaybackException) {
                 if (player.recoverAudio(e)) return
+                // Hasta 3 reintentos callados (el proveedor a veces tarda en soltar la conexión anterior).
+                if (attempts < 3 && retryable(e)) {
+                    attempts += 1
+                    buffering = true
+                    retryAt = System.currentTimeMillis() + 1_500L * attempts
+                    return
+                }
                 buffering = false
-                error = describe(e)
+                error = describe(e, maxScreens)
             }
         }
         player.exo.addListener(listener)
@@ -151,6 +216,9 @@ fun PlayerScreen(vm: AppViewModel, s: Screen.Player) {
         val ch = current ?: return@LaunchedEffect
         error = null
         retried = false
+        attempts = 0
+        retryAt = 0L
+        tracks = Tracks.EMPTY
         buffering = true
         val start = if (ch.id == s.channelId) s.resumeMs else 0L
         player.play(ch, if (start > 30_000) start - 3_000 else 0L)
@@ -176,6 +244,16 @@ fun PlayerScreen(vm: AppViewModel, s: Screen.Player) {
             ticks += 1
             if (ticks % 30 == 0) saveProgress()
         }
+    }
+
+    // Reintento callado: mientras tanto se ve el círculo de carga, no un error.
+    LaunchedEffect(retryAt) {
+        if (retryAt <= 0) return@LaunchedEffect
+        delay((retryAt - System.currentTimeMillis()).coerceAtLeast(0))
+        retryAt = 0L
+        val ch = current ?: return@LaunchedEffect
+        val pos = if (ch.kind != ContentKind.LIVE) player.exo.currentPosition else 0L
+        player.play(ch, pos)
     }
 
     // Un reintento automático si el canal falla.
@@ -206,6 +284,10 @@ fun PlayerScreen(vm: AppViewModel, s: Screen.Player) {
 
     BackHandler {
         when {
+            panel -> {
+                panel = false
+                runCatching { fr.requestFocus() }
+            }
             digits.isNotEmpty() -> digits = ""
             showInfo && !isVod -> showInfo = false
             else -> exit()
@@ -219,9 +301,17 @@ fun PlayerScreen(vm: AppViewModel, s: Screen.Player) {
             .focusRequester(fr)
             .focusable()
             .onPreviewKeyEvent { e ->
+                // Con el panel de idioma abierto, las flechas y OK son del panel.
+                if (panel) return@onPreviewKeyEvent false
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 val code = e.nativeKeyEvent.keyCode
                 when {
+                    hasOptions && (code == AndroidKey.KEYCODE_MENU || code == AndroidKey.KEYCODE_CAPTIONS ||
+                        code == AndroidKey.KEYCODE_MEDIA_AUDIO_TRACK || (isVod && code == AndroidKey.KEYCODE_DPAD_DOWN) ||
+                        (!isVod && code == AndroidKey.KEYCODE_DPAD_RIGHT)) -> {
+                        panel = true
+                        true
+                    }
                     code in AndroidKey.KEYCODE_0..AndroidKey.KEYCODE_9 && !isVod -> {
                         if (digits.length < 4) digits += (code - AndroidKey.KEYCODE_0).toString()
                         true
@@ -297,11 +387,20 @@ fun PlayerScreen(vm: AppViewModel, s: Screen.Player) {
         }
 
         val ch = current
-        AnimatedVisibility(visible = (showInfo || (isVod && !playing && !buffering)) && ch != null && error == null, enter = fadeIn(), exit = fadeOut()) {
+        AnimatedVisibility(visible = !panel && (showInfo || (isVod && !playing && !buffering)) && ch != null && error == null, enter = fadeIn(), exit = fadeOut()) {
             if (ch != null) {
-                if (isVod) VodBanner(ch, position, duration, playing)
-                else LiveBanner(vm, ch, vm.profile(d)?.avatar, vm.profile(d)?.name ?: "", vm.activeList(d)?.name ?: "")
+                if (isVod) VodBanner(ch, position, duration, playing, hasOptions)
+                else LiveBanner(vm, ch, vm.profile(d)?.avatar, vm.profile(d)?.name ?: "", vm.activeList(d)?.name ?: "", hasOptions)
             }
+        }
+
+        if (panel) {
+            TracksPanel(
+                audio = audioOpts,
+                text = textOpts,
+                onAudio = { chooseAudio(it) },
+                onText = { chooseText(it) },
+            )
         }
 
         if (digits.isNotEmpty()) {
@@ -319,8 +418,36 @@ fun PlayerScreen(vm: AppViewModel, s: Screen.Player) {
     }
 }
 
-private fun describe(e: PlaybackException): String = when (e.errorCode) {
-    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "El canal no respondió. Puede estar caído o la cuenta venció."
+/** Errores que vale la pena reintentar solos: de red o del servidor (no de formato). */
+private fun retryable(e: PlaybackException): Boolean = when (e.errorCode) {
+    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+    PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+    PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW,
+    PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED -> true
+    else -> false
+}
+
+/** El código HTTP con el que contestó el proveedor, si fue eso. */
+private fun httpCode(e: PlaybackException): Int? {
+    var c: Throwable? = e.cause
+    repeat(4) {
+        if (c is androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) return (c as androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException).responseCode
+        c = c?.cause
+    }
+    return null
+}
+
+private fun describe(e: PlaybackException, maxScreens: Int = 0): String = when (e.errorCode) {
+    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> when (httpCode(e)) {
+        401, 403, 406, 429, 458, 509, 512, 551, 552 ->
+            if (maxScreens > 0) "Tu proveedor no dejó abrir el canal. Tu cuenta permite $maxScreens ${if (maxScreens == 1) "pantalla" else "pantallas"} a la vez: cierra FitoTV en otra tele."
+            else "Tu proveedor no dejó abrir el canal. Si la lista está abierta en otra tele, ciérrala."
+        404, 410 -> "Este canal ya no existe en tu proveedor."
+        in 500..599 -> "El canal está fallando del lado de tu proveedor."
+        else -> "El canal no respondió. Puede estar caído o la cuenta venció."
+    }
     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "No pudimos conectarnos con el canal."
     PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
@@ -360,7 +487,7 @@ private fun Shade(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun LiveBanner(vm: AppViewModel, ch: Channel, avatar: String?, profileName: String, listName: String) {
+private fun LiveBanner(vm: AppViewModel, ch: Channel, avatar: String?, profileName: String, listName: String, hasOptions: Boolean) {
     val (now, next) = vm.epgFor(ch)
     Shade {
         Box(Modifier.fillMaxSize()) {
@@ -413,6 +540,12 @@ private fun LiveBanner(vm: AppViewModel, ch: Channel, avatar: String?, profileNa
                                 Keycap(icon = Icons.BACK)
                                 T("Guía", size = 15.sp, color = Fc.Muted2)
                             }
+                            if (hasOptions) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Keycap(label = "▶")
+                                    T("Idioma y subtítulos", size = 15.sp, color = Fc.Muted2)
+                                }
+                            }
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Keycap(label = "OK")
                                 T("Ocultar", size = 15.sp, color = Fc.Muted2)
@@ -426,7 +559,7 @@ private fun LiveBanner(vm: AppViewModel, ch: Channel, avatar: String?, profileNa
 }
 
 @Composable
-private fun VodBanner(ch: Channel, position: Long, duration: Long, playing: Boolean) {
+private fun VodBanner(ch: Channel, position: Long, duration: Long, playing: Boolean, hasOptions: Boolean) {
     Shade {
         Column(
             Modifier
@@ -459,11 +592,151 @@ private fun VodBanner(ch: Channel, position: Long, duration: Long, playing: Bool
                     Keycap(label = "◀ ▶")
                     T("10 segundos", size = 15.sp, color = Fc.Muted2)
                 }
+                if (hasOptions) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Keycap(label = "▼")
+                        T("Idioma y subtítulos", size = 15.sp, color = Fc.Muted2)
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Keycap(label = "Atrás")
                     T("Salir y guardar dónde vas", size = 15.sp, color = Fc.Muted2)
                 }
             }
+        }
+    }
+}
+
+// ----- Idioma y subtítulos -----
+
+/** Una pista de audio o de subtítulos que se puede elegir. */
+class TrackOption(val group: Tracks.Group, val index: Int, val format: Format, val label: String, val selected: Boolean)
+
+private val esMx = java.util.Locale("es", "MX")
+
+/** Las pistas que el reproductor sabe tocar, con nombres en español ("Español", "Inglés · 5.1"). */
+fun trackOptions(tracks: Tracks, type: Int): List<TrackOption> {
+    val out = ArrayList<TrackOption>()
+    var n = 0
+    for (g in tracks.groups) {
+        if (g.type != type) continue
+        for (i in 0 until g.length) {
+            if (!g.isTrackSupported(i)) continue
+            n += 1
+            val f = g.getTrackFormat(i)
+            out += TrackOption(g, i, f, trackLabel(f, n, type), g.isTrackSelected(i))
+        }
+    }
+    // Mismo nombre dos veces (dos pistas en español): se numeran para distinguirlas.
+    val dup = out.groupingBy { it.label }.eachCount().filterValues { it > 1 }.keys
+    if (dup.isEmpty()) return out
+    val seen = HashMap<String, Int>()
+    return out.map { o ->
+        if (o.label !in dup) o else {
+            val k = (seen[o.label] ?: 0) + 1
+            seen[o.label] = k
+            TrackOption(o.group, o.index, o.format, "${o.label} $k", o.selected)
+        }
+    }
+}
+
+private fun trackLabel(f: Format, n: Int, type: Int): String {
+    val code = f.language?.takeIf { it.isNotBlank() && it != "und" && it != "zxx" && it != "mul" }
+    val langName = code?.let {
+        val name = java.util.Locale.forLanguageTag(it).getDisplayLanguage(esMx)
+        if (name.isBlank() || name.equals(it, ignoreCase = true)) null else name.replaceFirstChar { c -> c.uppercaseChar() }
+    }
+    val label = f.label?.trim()?.takeIf { it.isNotEmpty() }
+    var base = when {
+        label != null && langName != null && !label.contains(langName, ignoreCase = true) -> "$langName · $label"
+        label != null -> label
+        langName != null -> langName
+        type == C.TRACK_TYPE_AUDIO -> "Audio $n"
+        else -> "Subtítulos $n"
+    }
+    if (type == C.TRACK_TYPE_AUDIO && f.channelCount >= 6) base += " · 5.1"
+    if (type == C.TRACK_TYPE_TEXT && (f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0) base += " (solo partes en otro idioma)"
+    return base
+}
+
+@Composable
+private fun TracksPanel(
+    audio: List<TrackOption>,
+    text: List<TrackOption>,
+    onAudio: (TrackOption) -> Unit,
+    onText: (TrackOption?) -> Unit,
+) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(60)
+        runCatching { first.requestFocus() }
+    }
+    val subsOff = text.none { it.selected }
+    val firstAudio = audio.indexOfFirst { it.selected }.coerceAtLeast(0)
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Brush.horizontalGradient(listOf(Color(0x000A1747), Color(0xCC0A1747), Color(0xF20A1747))))
+        )
+        Column(
+            Modifier
+                .align(Alignment.CenterEnd)
+                .width(560.dp)
+                .fillMaxHeight()
+                .padding(start = 40.dp, end = 56.dp, top = 56.dp, bottom = 40.dp),
+        ) {
+            T("Idioma y subtítulos", size = 30.sp, display = true)
+            Gap(h = 6.dp)
+            T("Se recuerda para tus siguientes películas y series.", size = 15.sp, color = Fc.Muted)
+            Gap(h = 22.dp)
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp)) {
+                if (audio.size > 1) {
+                    item(key = "a") { T("Idioma", size = 17.sp, weight = FontWeight.SemiBold, color = Fc.Muted2) }
+                    items(audio.size, key = { "a$it" }) { i ->
+                        val o = audio[i]
+                        TrackRow(o.label, o.selected, if (i == firstAudio) first else null) { onAudio(o) }
+                    }
+                    item(key = "gap") { Gap(h = 12.dp) }
+                }
+                if (text.isNotEmpty()) {
+                    item(key = "t") { T("Subtítulos", size = 17.sp, weight = FontWeight.SemiBold, color = Fc.Muted2) }
+                    item(key = "off") {
+                        TrackRow("Sin subtítulos", subsOff, if (audio.size <= 1 && subsOff) first else null) { onText(null) }
+                    }
+                    items(text.size, key = { "t$it" }) { i ->
+                        val o = text[i]
+                        TrackRow(o.label, o.selected, if (audio.size <= 1 && o.selected) first else null) { onText(o) }
+                    }
+                }
+            }
+            Box(Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Keycap(label = "Atrás")
+                T("Cerrar", size = 15.sp, color = Fc.Muted2)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackRow(label: String, selected: Boolean, fr: FocusRequester?, onClick: () -> Unit) {
+    FocusBox(
+        onClick = onClick,
+        focusRequester = fr,
+        modifier = Modifier.fillMaxWidth().height(58.dp),
+        bg = if (selected) Fc.S3 else Fc.S1,
+        focusedBg = Fc.Azul,
+    ) {
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                if (selected) Ico(Icons.CHECK, 22.dp, Fc.Menta, stroke = 2.6f)
+            }
+            T(label, size = 18.sp, weight = if (selected) FontWeight.Bold else FontWeight.Normal)
         }
     }
 }

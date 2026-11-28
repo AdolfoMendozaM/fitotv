@@ -68,6 +68,8 @@ fun AddListScreen(vm: AppViewModel, s: Screen.AddList) {
     var status by remember { mutableStateOf<AddStatus>(AddStatus.Idle) }
     var port by remember { mutableStateOf<Int?>(null) }
     val ip = remember { PairingServer.localAddress() }
+    // Editar una lista que ya tienes: los campos llegan llenos y "Guardar cambios" la reemplaza.
+    val editing = remember(s.editId) { s.editId?.let { id -> vm.data.value.playlists.firstOrNull { it.id == id } } }
 
     fun submit(paired: PairedList) {
         val pid = vm.profileId
@@ -78,7 +80,7 @@ fun AddListScreen(vm: AppViewModel, s: Screen.AddList) {
         if (status is AddStatus.Checking) return
         status = AddStatus.Checking(paired.name)
         scope.launch {
-            val r = vm.addList(pid, paired)
+            val r = if (editing != null) vm.editList(editing.id, paired) else vm.addList(pid, paired)
             status = r.fold(
                 onSuccess = { count ->
                     vm.sounds.play(Sfx.SUCCESS)
@@ -109,12 +111,13 @@ fun AddListScreen(vm: AppViewModel, s: Screen.AddList) {
     val address = if (ip != null && port != null) "http://$ip:$port" else null
     val qr = remember(address) { address?.let { PairingServer.qr(it, 400).asImageBitmap() } }
 
-    var tab by remember { mutableIntStateOf(0) }
-    var name by remember { mutableStateOf("") }
-    var link by remember { mutableStateOf("") }
-    var server by remember { mutableStateOf("") }
-    var user by remember { mutableStateOf("") }
-    var pass by remember { mutableStateOf("") }
+    var tab by remember { mutableIntStateOf(if (editing?.kind == ListKind.XTREAM) 1 else 0) }
+    var name by remember { mutableStateOf(editing?.name ?: "") }
+    var link by remember { mutableStateOf(editing?.url ?: "") }
+    var server by remember { mutableStateOf(editing?.server ?: "") }
+    var user by remember { mutableStateOf(editing?.user ?: "") }
+    var pass by remember { mutableStateOf(editing?.pass ?: "") }
+    val isFile = editing?.kind == ListKind.FILE
     val firstFr = rememberAutoFocus()
 
     Box(
@@ -123,9 +126,20 @@ fun AddListScreen(vm: AppViewModel, s: Screen.AddList) {
             .background(Fc.Noche)
     ) {
         Column(Modifier.padding(start = 64.dp, top = 48.dp, end = 64.dp)) {
-            T(if (s.firstTime) "Agrega tu primera lista" else "Agrega una lista", size = 46.sp, display = true, letterSpacing = (-1).sp)
+            T(
+                when {
+                    editing != null -> "Editar ${editing.name}"
+                    s.firstTime -> "Agrega tu primera lista"
+                    else -> "Agrega una lista"
+                },
+                size = 46.sp, display = true, letterSpacing = (-1).sp,
+            )
             Gap(h = 8.dp)
-            T("Elige cómo. Las dos formas terminan en el mismo lugar.", size = 20.sp, color = Fc.Muted)
+            T(
+                if (editing != null) "Cambia el nombre o los datos de tu proveedor. Si cambian los datos, revisamos que abra antes de guardar."
+                else "Elige cómo. Las dos formas terminan en el mismo lugar.",
+                size = 20.sp, color = Fc.Muted,
+            )
             Gap(h = 32.dp)
             Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                 // Con el celular
@@ -188,11 +202,13 @@ fun AddListScreen(vm: AppViewModel, s: Screen.AddList) {
                     Gap(h = 4.dp)
                     T("Con el teclado de la tele, tarda un poco más.", size = 16.sp, color = Fc.Muted)
                     Gap(h = 16.dp)
-                    TabChips(listOf("Enlace", "Usuario y contraseña"), tab) { tab = it }
+                    if (!isFile) TabChips(listOf("Enlace", "Usuario y contraseña"), tab) { tab = it }
                     Gap(h = 14.dp)
                     TvTextField(name, { name = it.take(40) }, "Nombre de la lista", width = 504.dp, focusRequester = firstFr)
                     Gap(h = 10.dp)
-                    if (tab == 0) {
+                    if (isFile) {
+                        T("Esta lista se subió como archivo: aquí solo puedes cambiarle el nombre.", size = 16.sp, color = Fc.Muted, maxLines = 2)
+                    } else if (tab == 0) {
                         TvTextField(link, { link = it.trim() }, "Enlace: http://…/lista.m3u", width = 504.dp, keyboard = KeyboardType.Uri)
                     } else {
                         TvTextField(server, { server = it.trim() }, "Servidor: http://servidor.com:8080", width = 504.dp, keyboard = KeyboardType.Uri)
@@ -203,9 +219,11 @@ fun AddListScreen(vm: AppViewModel, s: Screen.AddList) {
                         }
                     }
                     Gap(h = 16.dp)
-                    PrimaryButton("Agregar lista", icon = Icons.PLUS, onClick = {
-                        val listName = name.ifBlank { "Mi lista" }
-                        if (tab == 0) {
+                    PrimaryButton(if (editing != null) "Guardar cambios" else "Agregar lista", icon = if (editing != null) Icons.CHECK else Icons.PLUS, onClick = {
+                        val listName = name.ifBlank { editing?.name ?: "Mi lista" }
+                        if (isFile) {
+                            submit(PairedList(listName, ListKind.FILE))
+                        } else if (tab == 0) {
                             if (link.isBlank()) status = AddStatus.Failed("Falta el enlace de la lista.")
                             else submit(PairedList(listName, ListKind.URL, url = link))
                         } else {
@@ -224,6 +242,7 @@ fun AddListScreen(vm: AppViewModel, s: Screen.AddList) {
         if (status !is AddStatus.Idle) {
             StatusOverlay(
                 status = status,
+                editing = editing != null,
                 onContinue = {
                     if (s.firstTime) {
                         vm.finishOnboarding()
@@ -243,7 +262,7 @@ fun AddListScreen(vm: AppViewModel, s: Screen.AddList) {
 }
 
 @Composable
-private fun StatusOverlay(status: AddStatus, onContinue: () -> Unit, onRetry: () -> Unit) {
+private fun StatusOverlay(status: AddStatus, editing: Boolean, onContinue: () -> Unit, onRetry: () -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
@@ -268,11 +287,11 @@ private fun StatusOverlay(status: AddStatus, onContinue: () -> Unit, onRetry: ()
                         Ico(Icons.CHECK, 48.dp, Fc.Noche, stroke = 2.6f)
                     }
                     Gap(h = 28.dp)
-                    T("¡Listo!", size = 48.sp, display = true)
+                    T(if (editing) "Cambios guardados" else "¡Listo!", size = 48.sp, display = true)
                     Gap(h = 10.dp)
                     T("${status.name} trae ${status.count} canales y programas.", size = 21.sp, color = Fc.Muted2, align = TextAlign.Center, maxLines = 2)
                     Gap(h = 32.dp)
-                    PrimaryButton("Ver mis canales", onClick = onContinue, icon = Icons.PLAY, focusRequester = fr)
+                    PrimaryButton(if (editing) "Regresar" else "Ver mis canales", onClick = onContinue, icon = if (editing) Icons.BACK else Icons.PLAY, focusRequester = fr)
                 }
                 is AddStatus.Failed -> {
                     val fr = rememberAutoFocus(status)
@@ -280,7 +299,7 @@ private fun StatusOverlay(status: AddStatus, onContinue: () -> Unit, onRetry: ()
                         Ico(Icons.WARN, 48.dp, Fc.Noche, stroke = 2.8f)
                     }
                     Gap(h = 28.dp)
-                    T("No pudimos abrir la lista", size = 40.sp, display = true)
+                    T(if (editing) "No pudimos guardar los cambios" else "No pudimos abrir la lista", size = 40.sp, display = true)
                     Gap(h = 10.dp)
                     T(status.message, size = 20.sp, color = Fc.Muted2, align = TextAlign.Center, maxLines = 3, lineHeight = 28.sp)
                     Gap(h = 32.dp)

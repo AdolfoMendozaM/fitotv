@@ -22,10 +22,12 @@ class PlaylistRepository(private val store: Store) {
         cache[listId]?.let { return@withContext it }
         val binary = store.hasChannels(listId)
         var list = store.loadChannels(listId) ?: return@withContext emptyList()
-        // Copia de una versión anterior: los nombres llegaban sin limpiar; se limpian y se guarda en binario.
-        if (!binary) {
-            list = cleanLiveNames(list)
+        // Copia de una versión anterior: los nombres se limpian con las reglas de ahora y se guarda.
+        val version = store.data.value.playlists.firstOrNull { it.id == listId }?.namesVersion ?: NAMES_VERSION
+        if (!binary || version < NAMES_VERSION) {
+            list = cleanNames(list)
             store.saveChannels(listId, list)
+            store.update { d -> d.copy(playlists = d.playlists.map { if (it.id == listId) it.copy(namesVersion = NAMES_VERSION) else it }) }
         }
         cache[listId] = list
         list
@@ -52,7 +54,7 @@ class PlaylistRepository(private val store: Store) {
                     f.bufferedReader().use { M3uParser.parse(it, p.id) }
                 }
             }
-            raw.copy(channels = cleanLiveNames(raw.channels))
+            raw.copy(channels = cleanNames(raw.channels))
         } catch (e: UnknownHostException) {
             throw IOException("No encontramos esa dirección. Revisa que esté bien escrita y que la tele tenga internet")
         } catch (e: SocketTimeoutException) {
@@ -88,13 +90,27 @@ class PlaylistRepository(private val store: Store) {
      * series no se tocan: ahí "E05" o "(2019)" son parte del nombre. Se guarda ya limpio para no
      * repetir el trabajo cada vez que se abre la app.
      */
-    private fun cleanLiveNames(all: List<Channel>): List<Channel> {
+    private fun cleanNames(all: List<Channel>): List<Channel> {
         val idx = all.indices.filter { all[it].kind == ContentKind.LIVE }
-        if (idx.isEmpty()) return all
-        val cleaned = ChannelNames.clean(idx.map { all[it] })
         val out = all.toMutableList()
-        idx.forEachIndexed { j, i -> out[i] = cleaned[j] }
+        if (idx.isNotEmpty()) {
+            val cleaned = ChannelNames.clean(idx.map { all[it] })
+            idx.forEachIndexed { j, i -> out[i] = cleaned[j] }
+        }
+        // Grupos y categorías sin emojis ni estrellas ("⭐CINE PREMIUM" → "Cine Premium").
+        val groups = HashMap<String, String>()
+        for (i in out.indices) {
+            val g = out[i].group
+            if (g.isEmpty()) continue
+            val clean = groups.getOrPut(g) { NameText.cleanGroup(g) }
+            if (clean != g) out[i] = out[i].copy(group = clean)
+        }
         return out
+    }
+
+    companion object {
+        /** Sube cuando mejora la limpieza de nombres: las listas guardadas se limpian otra vez al abrir. */
+        const val NAMES_VERSION = 2
     }
 
     /** Temporadas de una serie de Xtream (se piden al abrirla y se recuerdan un rato). */
@@ -128,7 +144,8 @@ class PlaylistRepository(private val store: Store) {
                     channelCount = result.channels.size,
                     epgUrl = it.epgUrl.ifBlank { result.epgUrl },
                     lastError = null,
-                ) else it
+                    namesVersion = NAMES_VERSION,
+                ).withAccount(result.account) else it
             })
         }
     }
@@ -171,6 +188,32 @@ class PlaylistRepository(private val store: Store) {
         if (last.isEmpty() || !last.all { it.isDigit() }) return null
         return c.kind.name + ":" + last
     }
+
+    /** Vencimiento y pantallas de la cuenta, si la lista es de usuario y contraseña. */
+    suspend fun account(p: Playlist): AccountInfo? = withContext(Dispatchers.IO) {
+        val creds = credsOf(p) ?: return@withContext null
+        val info = try {
+            XtreamApi.account(creds)
+        } catch (e: Exception) {
+            return@withContext null
+        }
+        store.update { d -> d.copy(playlists = d.playlists.map { if (it.id == p.id) it.withAccount(info) else it }) }
+        info
+    }
+
+    fun credsOf(p: Playlist): XtreamApi.Creds? = when (p.kind) {
+        ListKind.XTREAM -> XtreamApi.Creds(p.server, p.user, p.pass)
+        ListKind.URL -> XtreamApi.credsFromUrl(p.url)
+        ListKind.FILE -> null
+    }
+
+    private fun Playlist.withAccount(a: AccountInfo?): Playlist = if (a == null) this else copy(
+        expiresAt = a.expiresAt,
+        maxScreens = a.maxScreens,
+        accountStatus = a.status,
+        trial = a.trial,
+        accountCheckedAt = System.currentTimeMillis(),
+    )
 
     fun forget(listId: String) {
         cache.remove(listId)

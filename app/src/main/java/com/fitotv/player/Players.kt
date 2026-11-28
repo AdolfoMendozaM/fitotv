@@ -77,6 +77,14 @@ class FitoPlayer(context: Context, muted: Boolean, preview: Boolean = false) {
         @Volatile
         private var meter: DefaultBandwidthMeter? = null
 
+        /**
+         * Muchas cuentas permiten una sola pantalla: si la vista previa sigue conectada cuando
+         * abres el canal en grande, el proveedor rechaza la segunda conexión. Por eso al abrir un
+         * canal en grande se cortan las vistas previas y no vuelven a conectarse mientras se ve.
+         */
+        private val previews = java.util.Collections.newSetFromMap(java.util.WeakHashMap<FitoPlayer, Boolean>())
+        private var mains = 0
+
         /** Uno para toda la app: lo que aprende de tu internet sirve para el siguiente canal. */
         fun bandwidthMeter(context: Context): DefaultBandwidthMeter = meter ?: synchronized(this) {
             meter ?: DefaultBandwidthMeter.Builder(context.applicationContext)
@@ -130,7 +138,10 @@ class FitoPlayer(context: Context, muted: Boolean, preview: Boolean = false) {
             .build()
         if (muted) exo.volume = 0f
         exo.addAnalyticsListener(AudioLog { playing })
+        if (preview) previews.add(this) else mains += 1
     }
+
+    private val isPreview = preview
 
     /**
      * Si el error vino del sonido, lo arregla y vuelve a intentar sin avisar a la pantalla.
@@ -161,6 +172,8 @@ class FitoPlayer(context: Context, muted: Boolean, preview: Boolean = false) {
     }
 
     fun play(channel: Channel, startMs: Long = 0) {
+        if (isPreview && mains > 0) return
+        if (!isPreview) previews.toList().forEach { it.exo.stop() }
         playing = channel.name
         if (noAudio) {
             noAudio = false
@@ -181,7 +194,10 @@ class FitoPlayer(context: Context, muted: Boolean, preview: Boolean = false) {
         exo.clearMediaItems()
     }
 
-    fun release() = exo.release()
+    fun release() {
+        if (isPreview) previews.remove(this) else mains = (mains - 1).coerceAtLeast(0)
+        exo.release()
+    }
 
     private fun item(ch: Channel): MediaItem {
         val b = MediaItem.Builder().setUri(ch.url)
@@ -310,6 +326,8 @@ fun LivePreview(channel: Channel?, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val player = remember { FitoPlayer(context, muted = false, preview = true) }
     var state by remember { mutableIntStateOf(0) } // 0 cargando, 1 se ve, 2 no responde
+    var retries by remember { mutableIntStateOf(0) }
+    var retryKey by remember { mutableIntStateOf(0) }
     DisposableEffect(Unit) {
         val listener = object : Player.Listener {
             override fun onRenderedFirstFrame() {
@@ -317,7 +335,12 @@ fun LivePreview(channel: Channel?, modifier: Modifier = Modifier) {
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                if (!player.recoverAudio(error)) state = 2
+                if (player.recoverAudio(error)) return
+                // Un reintento antes de rendirse: a veces el proveedor tarda en soltar la conexión anterior.
+                if (retries < 1) {
+                    retries += 1
+                    retryKey += 1
+                } else state = 2
             }
         }
         player.exo.addListener(listener)
@@ -328,11 +351,17 @@ fun LivePreview(channel: Channel?, modifier: Modifier = Modifier) {
     }
     LaunchedEffect(channel?.id) {
         state = 0
+        retries = 0
         player.stop()
         if (channel != null) {
             delay(450)
             player.play(channel)
         }
+    }
+    LaunchedEffect(retryKey) {
+        if (retryKey == 0 || channel == null) return@LaunchedEffect
+        delay(2_000)
+        player.play(channel)
     }
     Box(modifier) {
         VideoSurface(player, Modifier.fillMaxSize(), zoom = true)

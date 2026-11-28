@@ -126,8 +126,10 @@ fun TvTextField(
                 .height(60.dp)
                 .focusRequester(editFr)
                 .onFocusChanged {
+                    // Si el foco se va a otro lado (cerraste el teclado con Atrás y bajaste), se deja ir:
+                    // antes el campo lo volvía a jalar y no podías pasar al siguiente.
                     if (it.isFocused) hadFocus = true
-                    else if (hadFocus) { editing = false; returnFocus = true }
+                    else if (hadFocus) editing = false
                 }
                 .clip(shape)
                 .background(Fc.S1)

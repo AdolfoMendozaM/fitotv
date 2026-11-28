@@ -119,7 +119,7 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
     Column(
         Modifier
             .fillMaxSize()
-            .padding(horizontal = 48.dp)
+            .padding(horizontal = 56.dp)
     ) {
         Gap(h = 36.dp)
         Hero(
@@ -127,7 +127,8 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
             item = shown,
             compact = compact,
             list = list,
-            crumb = "Inicio, grupo $groupTitle",
+            groupTitle = groupTitle,
+            groupCount = gridChannels.size,
             onPlay = { item ->
                 when (item) {
                     is HeroItem.Vod -> vm.play(item.ch, listOf(item.ch))
@@ -136,21 +137,21 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
             },
             onRestart = { item -> vm.play(item.ch, listOf(item.ch), fromStart = true) },
         )
-        Gap(h = 14.dp)
+        Gap(h = 20.dp)
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(top = 10.dp, bottom = 48.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp),
         ) {
             if (vodRecents.isNotEmpty()) {
                 item(key = "vod") {
-                    Column {
-                        SectionTitle("Continuar viendo contenido de $name", "Lo último que viste")
-                        Gap(h = 12.dp)
+                    Column(Modifier.padding(bottom = 18.dp)) {
+                        SectionTitle("Sigue viendo", "Películas y series que dejaste a medias")
+                        Gap(h = 16.dp)
                         LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(20.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                         ) {
                             itemsIndexed(vodRecents, key = { _, p -> "v" + p.first.id }) { i, (ch, r) ->
@@ -162,13 +163,14 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
                                     },
                                     onFocus = { hero = HeroItem.Vod(ch, r); compact = false },
                                     focusRequester = ef.of("v:" + ch.id, i == 0 && firstSection == 0),
+                                    width = 230.dp,
                                 )
                             }
                             item(key = "todo") {
                                 FocusBox(
                                     onClick = { vm.openTab(Screen.Catalog(ContentKind.MOVIE)) },
                                     onFocus = { compact = false },
-                                    modifier = Modifier.size(205.dp, 150.dp),
+                                    modifier = Modifier.size(200.dp, 150.dp),
                                     bg = Color.Transparent,
                                     focusedBg = Fc.S2,
                                     contentAlignment = Alignment.Center,
@@ -180,7 +182,7 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
                                         contentAlignment = Alignment.Center,
                                     ) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Ico(Icons.HISTORY, 28.dp, Fc.Num)
+                                            Ico(Icons.FILM, 28.dp, Fc.Num)
                                             T("Ver todo", size = 15.sp, weight = FontWeight.SemiBold)
                                             T("Películas y series", size = 13.sp, color = Fc.Muted)
                                         }
@@ -193,12 +195,12 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
             }
             if (liveRecents.isNotEmpty()) {
                 item(key = "live") {
-                    Column {
-                        SectionTitle("Canales recientes", "Lo que está pasando ahora en los que visitaste")
-                        Gap(h = 12.dp)
+                    Column(Modifier.padding(bottom = 18.dp)) {
+                        SectionTitle("Viste hace poco", "Los últimos canales que abriste")
+                        Gap(h = 16.dp)
                         val zap = liveRecents.map { it.first }
                         LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(20.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                         ) {
                             itemsIndexed(liveRecents, key = { _, p -> "l" + p.first.id }) { i, (ch, r) ->
@@ -216,55 +218,13 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
                     }
                 }
             }
-            item(key = "groups") {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                ) {
-                    if (favorites.isNotEmpty()) {
-                        item(key = "fav") {
-                            GroupChip("Favoritos", favorites.size, group == AppViewModel.FAVORITES, star = true) {
-                                vm.selectGroup(AppViewModel.FAVORITES)
-                            }
-                        }
-                    }
-                    items(vm.groups, key = { "g" + it.name }) { g ->
-                        GroupChip(g.name, g.count, g.name == group) { vm.selectGroup(g.name) }
-                    }
-                    item(key = "all") {
-                        FocusBox(
-                            onClick = { vm.go(Screen.Groups) },
-                            onFocus = { compact = false },
-                            modifier = Modifier.height(44.dp),
-                            shape = RoundedCornerShape(22.dp),
-                            radius = 22.dp,
-                            bg = Color.Transparent,
-                            focusedBg = Fc.S2,
-                        ) {
-                            Row(
-                                Modifier
-                                    .height(44.dp)
-                                    .border(2.dp, Fc.Line2, RoundedCornerShape(22.dp))
-                                    .padding(start = 12.dp, end = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Ico(Icons.GRID, 20.dp, Fc.Muted2)
-                                T("Todos los grupos", size = 16.sp, weight = FontWeight.SemiBold, color = Fc.Muted2)
-                            }
-                        }
-                    }
-                }
-            }
             item(key = "gridtitle") {
                 SectionTitle(groupTitle, if (gridChannels.size == 1) "1 canal" else "${gridChannels.size} canales")
             }
             items(rows.size, key = { "row$it" }) { r ->
                 Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 0.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
                     rows[r].forEachIndexed { i, ch ->
                         ChannelCard(
@@ -289,26 +249,32 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
     }
 }
 
+/** Botón redondo de arriba: la lista que ves o el grupo de canales, con su flechita para cambiar. */
 @Composable
-private fun GroupChip(name: String, count: Int, selected: Boolean, star: Boolean = false, onClick: () -> Unit) {
+private fun PickerPill(letter: String?, icon: String?, title: String, sub: String, onClick: () -> Unit) {
     FocusBox(
         onClick = onClick,
-        modifier = Modifier.height(44.dp),
-        shape = RoundedCornerShape(22.dp),
-        radius = 22.dp,
-        bg = if (selected) Fc.Azul else Fc.S2,
-        focusedBg = if (selected) Fc.Azul else Fc.S3,
+        modifier = Modifier.height(42.dp),
+        shape = RoundedCornerShape(21.dp),
+        radius = 21.dp,
     ) {
         Row(
             Modifier
-                .height(44.dp)
-                .padding(horizontal = 16.dp),
+                .height(42.dp)
+                .padding(start = 7.dp, end = 15.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (star) Ico(Icons.STAR, 16.dp, if (selected) Color.White else Fc.Menta, fill = true)
-            T(name, size = 16.sp, weight = FontWeight.SemiBold, color = if (selected) Color.White else Fc.Muted2)
-            T(count.toString(), size = 14.sp, color = if (selected) Color(0xFFDCE4FF) else Fc.Muted)
+            Box(
+                Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(if (letter != null) Fc.Menta else Fc.S3),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (letter != null) T(letter, size = 14.sp, color = Fc.Noche, weight = FontWeight.Bold)
+                else if (icon != null) Ico(icon, 17.dp, Fc.Text)
+            }
+            T(title, size = 15.sp, weight = FontWeight.SemiBold)
+            T(sub, size = 15.sp, color = Fc.Muted)
+            Ico(Icons.CHEVRON_DOWN, 18.dp, Fc.Muted, stroke = 2.2f)
         }
     }
 }
@@ -319,11 +285,12 @@ private fun Hero(
     item: HeroItem?,
     compact: Boolean,
     list: Playlist,
-    crumb: String,
+    groupTitle: String,
+    groupCount: Int,
     onPlay: (HeroItem) -> Unit,
     onRestart: (HeroItem.Vod) -> Unit,
 ) {
-    val h by animateDpAsState(if (compact) 180.dp else 220.dp, tween(420), label = "alto")
+    val h by animateDpAsState(if (compact) 186.dp else 232.dp, tween(420), label = "alto")
     val pw by animateDpAsState(if (compact) 320.dp else 391.dp, tween(420), label = "ancho")
     Row(
         Modifier
@@ -336,35 +303,12 @@ private fun Hero(
                 .weight(1f)
                 .fillMaxHeight()
         ) {
-            if (!compact) {
-                FocusBox(
-                    onClick = { vm.go(Screen.Lists) },
-                    modifier = Modifier.height(40.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    radius = 20.dp,
-                ) {
-                    Row(
-                        Modifier
-                            .height(40.dp)
-                            .padding(start = 6.dp, end = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(Fc.Menta), contentAlignment = Alignment.Center) {
-                            T(list.name.take(1).uppercase(), size = 14.sp, color = Fc.Noche, weight = FontWeight.Bold)
-                        }
-                        T(list.name, size = 15.sp, weight = FontWeight.SemiBold)
-                        T("${vm.lib.live.size} canales", size = 15.sp, color = Fc.Muted)
-                        Ico(Icons.CHEVRON_DOWN, 18.dp, Fc.Muted, stroke = 2.2f)
-                    }
-                }
-                Gap(h = 14.dp)
-            } else {
-                Gap(h = 18.dp)
-                T(crumb, size = 14.sp, color = Fc.Muted)
-                Gap(h = 12.dp)
+            // La lista y el grupo, uno junto al otro: con OK se cambian.
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                PickerPill(list.name.take(1).uppercase(), null, list.name, "${vm.lib.live.size} canales") { vm.go(Screen.Lists) }
+                PickerPill(null, if (vm.selectedGroup == AppViewModel.FAVORITES) Icons.STAR else groupIcon(groupTitle), groupTitle, "$groupCount") { vm.go(Screen.Groups) }
             }
-
+            Gap(h = if (compact) 14.dp else 18.dp)
             when (item) {
                 is HeroItem.Vod -> {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

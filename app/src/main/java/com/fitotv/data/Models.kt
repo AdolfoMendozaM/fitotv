@@ -61,6 +61,27 @@ data class Playlist(
     val updatedAt: Long = 0,
     val channelCount: Int = 0,
     val lastError: String? = null,
+    /** Con qué versión de la limpieza se guardaron los nombres (para limpiar otra vez si mejora). */
+    val namesVersion: Int = 0,
+    /** Cuenta del proveedor (solo usuario y contraseña): vencimiento en ms, 0 si no se sabe, -1 sin vencimiento. */
+    val expiresAt: Long = 0,
+    /** Cuántas pantallas a la vez permite la cuenta (0 si no se sabe). */
+    val maxScreens: Int = 0,
+    /** "Active", "Expired", "Banned"… tal como lo dice el proveedor. */
+    val accountStatus: String = "",
+    val trial: Boolean = false,
+    val accountCheckedAt: Long = 0,
+    /** Versión de la guía guardada (2: incluye la guía pública por nombre). */
+    val epgVersion: Int = 0,
+)
+
+/** Lo que dice el proveedor de la cuenta (Xtream). */
+data class AccountInfo(
+    val expiresAt: Long,
+    val maxScreens: Int,
+    val activeScreens: Int,
+    val status: String,
+    val trial: Boolean,
 )
 
 @Serializable
@@ -114,6 +135,9 @@ data class Settings(
     val sound: Boolean = true,
     val lastProfileId: String? = null,
     val onboarded: Boolean = false,
+    /** Idioma de audio y de subtítulos que elegiste la última vez (código como "spa" o "es"; "off" sin subtítulos). */
+    val audioLang: String = "",
+    val subLang: String = "",
 )
 
 @Serializable

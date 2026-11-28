@@ -38,12 +38,13 @@ class Library private constructor(
     private val searchKeys: Array<String>,
 ) {
     /** Hasta [limit] resultados; primero los que empiezan con lo que escribiste. */
-    fun search(query: String, limit: Int = 60): List<Channel> {
+    fun search(query: String, limit: Int = 60, kind: ContentKind? = null): List<Channel> {
         val q = Fold.fold(query.trim())
         if (q.length < 2) return emptyList()
         val starts = ArrayList<Channel>()
         val contains = ArrayList<Channel>()
         for (i in searchKeys.indices) {
+            if (kind != null && searchItems[i].kind != kind) continue
             val k = searchKeys[i]
             if (k.startsWith(q)) {
                 starts.add(searchItems[i])

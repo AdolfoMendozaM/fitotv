@@ -8,7 +8,7 @@ import java.io.BufferedReader
  */
 object M3uParser {
 
-    data class Result(val channels: List<Channel>, val epgUrl: String)
+    data class Result(val channels: List<Channel>, val epgUrl: String, val account: AccountInfo? = null)
 
     private val attrRegex = Regex("""([A-Za-z0-9_-]+)\s*=\s*"([^"]*)"""")
 

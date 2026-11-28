@@ -65,6 +65,25 @@ object XtreamApi {
         }
     }
 
+    /** Vencimiento, pantallas y estado de la cuenta (una sola petición, ligera). */
+    fun account(c: Creds): AccountInfo {
+        val account = Http.open(c.api()) { readObject(it) }
+        val user = account["user_info"] as? JsonObject ?: throw NotXtream()
+        return accountOf(user)
+    }
+
+    private fun accountOf(user: JsonObject): AccountInfo {
+        val exp = user.str("exp_date").toLongOrNull()
+        return AccountInfo(
+            // Sin fecha (null o 0) es una cuenta sin vencimiento.
+            expiresAt = if (exp == null || exp <= 0) -1 else exp * 1000,
+            maxScreens = user.str("max_connections").toIntOrNull() ?: 0,
+            activeScreens = user.str("active_cons").toIntOrNull() ?: 0,
+            status = user.str("status"),
+            trial = user.str("is_trial") == "1",
+        )
+    }
+
     /** Revisa la cuenta y baja canales, películas y series. */
     fun load(c: Creds): M3uParser.Result {
         val account = Http.open(c.api()) { readObject(it) }
@@ -131,7 +150,7 @@ object XtreamApi {
                 if (ch.num > 0) ch else ch.copy(num = n)
             }
         }
-        return M3uParser.Result(numbered, Xtream.epgUrl(c.server, c.user, c.pass))
+        return M3uParser.Result(numbered, Xtream.epgUrl(c.server, c.user, c.pass), accountOf(user))
     }
 
     /**

@@ -74,7 +74,7 @@ fun screenKey(s: Screen): String = when (s) {
     is Screen.Series -> "series-${s.showId}"
     is Screen.Player -> "player"
     is Screen.CreateProfile -> "profile-${s.editId}"
-    is Screen.AddList -> "addlist"
+    is Screen.AddList -> "addlist-${s.editId}"
     else -> s.toString()
 }
 

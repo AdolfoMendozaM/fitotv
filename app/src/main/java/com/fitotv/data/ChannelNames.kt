@@ -41,7 +41,21 @@ object ChannelNames {
     /** Devuelve los canales con el nombre limpio, en el mismo orden. */
     fun clean(channels: List<Channel>): List<Channel> {
         if (channels.isEmpty()) return channels
-        val names = channels.map { it.name.replace(oddSpaces, " ") }
+        val minRepeats = if (channels.size < 10) 2 else 3
+        // 0) Letras disfrazadas ("F@MILY", "C1NEMAX") y la categoría del proveedor al inicio
+        //    ("CINE | HBO", "PERU | Willax") cuando se repite y es la misma del grupo.
+        val plain = channels.map { NameText.deobfuscate(it.name.replace(oddSpaces, " ")) }
+        val prefixes = plain.map { categoryPrefix(it) }
+        val prefixCounts = HashMap<String, Int>()
+        prefixes.forEach { p -> if (p != null) prefixCounts[p.first] = (prefixCounts[p.first] ?: 0) + 1 }
+        val names = plain.mapIndexed { i, n ->
+            val p = prefixes[i] ?: return@mapIndexed n
+            val count = prefixCounts[p.first] ?: 0
+            val group = Fold.fold(NameText.deobfuscate(channels[i].group))
+            val related = group.isNotBlank() && (group.contains(p.first) || p.first.contains(group))
+            val rest = n.substring(p.second).trim()
+            if (rest.isNotEmpty() && count >= minRepeats && (related || count >= 8)) rest else n
+        }
         // 1) Cuántas veces aparece cada etiqueta en la lista.
         val counts = HashMap<String, Int>()
         val notes = HashMap<String, Int>()
@@ -53,7 +67,6 @@ object ChannelNames {
                 val k = m.groupValues[1].uppercase(); tails[k] = (tails[k] ?: 0) + 1
             }
         }
-        val minRepeats = if (channels.size < 10) 2 else 3
         val removable = counts.filterValues { it >= minRepeats }.keys
         val removableNotes = notes.filterValues { it >= minRepeats }.keys
         val removableTails = tails.filterValues { it >= minRepeats }.keys
@@ -69,9 +82,21 @@ object ChannelNames {
                 byName[name.lowercase()]!!.any { cleaned[it].second != removed }
             // Solo se agrega lo que le dice algo a la gente (país, resolución), nunca "P2".
             val hint = removed.lastOrNull { !codeLike.matches(it) }
-            val finalName = if (clash && hint != null) "$name · $hint" else name
+            val pretty = NameText.prettyCase(name)
+            val finalName = if (clash && hint != null) "$pretty · $hint" else pretty
             if (finalName == ch.name) ch else ch.copy(name = finalName)
         }
+    }
+
+    // "CINE | HBO", "PERU │ Willax", "DEPORTES » ESPN": la categoría antes de una barra.
+    private val categoryTag = Regex("^\\s*([^|│┃»]{2,24}?)\\s*[|│┃»]+\\s*(?=\\S)")
+
+    /** La categoría al inicio (normalizada) y cuánto mide, si la hay. */
+    private fun categoryPrefix(name: String): Pair<String, Int>? {
+        val m = categoryTag.find(name) ?: return null
+        val key = Fold.fold(m.groupValues[1].trim())
+        if (key.none { it.isLetter() }) return null
+        return key to m.value.length
     }
 
     /** Etiquetas que podrían quitarse del inicio de un nombre (normalizadas). */
