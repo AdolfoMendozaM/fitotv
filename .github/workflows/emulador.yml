@@ -2,9 +2,6 @@ name: Probar en emulador de tele
 
 on:
   workflow_dispatch:
-  # Mientras se prueba la versión 1.0.17 (se quita al unirla a main).
-  push:
-    branches: [api36]
 
 permissions:
   contents: write
