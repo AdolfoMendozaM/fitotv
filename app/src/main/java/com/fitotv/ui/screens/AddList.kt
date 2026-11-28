@@ -23,6 +23,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -251,6 +253,9 @@ private fun StatusOverlay(status: AddStatus, onContinue: () -> Unit, onRetry: ()
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(720.dp)) {
             when (status) {
                 is AddStatus.Checking -> {
+                    // Mientras revisa, el foco se queda aquí: OK no abre el teclado de los campos de atrás.
+                    val hold = rememberAutoFocus(status)
+                    Box(Modifier.size(1.dp).focusRequester(hold).focusable())
                     Spinner(56.dp)
                     Gap(h = 28.dp)
                     T("Revisando tu lista…", size = 40.sp, display = true)

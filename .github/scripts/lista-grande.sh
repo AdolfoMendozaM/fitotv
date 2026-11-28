@@ -54,6 +54,21 @@ wait_list() {
   return 1
 }
 
+# Espera a que la pantalla muestre un texto (Compose lo expone para accesibilidad).
+wait_text() {
+  local t0=$(date +%s)
+  for i in $(seq 1 120); do
+    adb shell uiautomator dump /sdcard/u.xml >/dev/null 2>&1
+    if adb shell cat /sdcard/u.xml 2>/dev/null | grep -q "$2"; then
+      echo "$1: '$2' en pantalla a los $(( $(date +%s) - t0 )) s" | tee -a "$M"
+      return 0
+    fi
+    sleep 1
+  done
+  echo "$1: no apareció '$2'" | tee -a "$M"
+  return 1
+}
+
 rail() { # va al menú lateral y baja N lugares desde el avatar
   for i in 1 2 3 4 5 6 7; do key KEYCODE_DPAD_LEFT; done
   for i in 1 2 3 4 5 6 7 8; do key KEYCODE_DPAD_UP; done
@@ -70,7 +85,8 @@ curl -s -m 30 --data-urlencode "tipo=usuario" --data-urlencode "nombre=Proveedor
   http://127.0.0.1:8090/lista -o /dev/null && echo "lista enviada (API)"
 sleep 2; shot G01-revisando
 if wait_list "API"; then
-  sleep 2; shot G02-listo
+  wait_text "API" "Ver mis canales"
+  sleep 1; shot G02-listo
   mem "API, recién agregada"
   key KEYCODE_DPAD_CENTER
   sleep 5; shot G03-inicio
@@ -88,11 +104,10 @@ if wait_list "API"; then
   mem "API, después de recorrer"
   # Cerrar y abrir: debe abrir con la copia guardada, sin bajar todo otra vez.
   adb shell am force-stop "$PKG"; sleep 1
-  t0=$(date +%s%N)
   adb shell am start -n "$PKG/com.fitotv.MainActivity" >/dev/null
   sleep 2; shot G11-arranque-2s
-  sleep 3; shot G12-arranque-5s
-  sleep 3; shot G13-arranque-8s
+  wait_text "API al volver a abrir" "Ver ahora"
+  shot G12-arranque-listo
   mem "API, al volver a abrir"
 fi
 alive && echo "API: la app sigue abierta" | tee -a "$M"
@@ -103,7 +118,8 @@ curl -s -m 30 --data-urlencode "tipo=enlace" --data-urlencode "nombre=M3U grande
   --data-urlencode "enlace=http://10.0.2.2:8767/lista_grande.m3u" \
   http://127.0.0.1:8090/lista -o /dev/null && echo "lista enviada (M3U)"
 if wait_list "M3U"; then
-  sleep 2; shot G20-m3u-listo
+  wait_text "M3U" "Ver mis canales"
+  sleep 1; shot G20-m3u-listo
   mem "M3U, recién agregada"
   key KEYCODE_DPAD_CENTER
   sleep 5; shot G21-m3u-inicio
