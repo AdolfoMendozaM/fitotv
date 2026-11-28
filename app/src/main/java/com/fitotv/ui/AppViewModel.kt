@@ -26,6 +26,7 @@ import com.fitotv.sound.Sfx
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -285,7 +286,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private var shortEpgCreds: com.fitotv.data.XtreamApi.Creds? = null
     private val epgRequested = HashSet<String>()
-    private val epgLimiter = kotlinx.coroutines.sync.Semaphore(3)
+
+    /**
+     * Con calma para no molestar al proveedor (algunos bloquean un rato a quien pide mucho de golpe):
+     * una petición a la vez, con una pausa entre cada una, máximo 120 cada 10 minutos, y si el
+     * servidor contesta con error se deja de pedir guía 10 minutos.
+     */
+    private val epgMutex = kotlinx.coroutines.sync.Mutex()
+    private val epgTimes = ArrayDeque<Long>()
+    private var epgPausedUntil = 0L
 
     /** Lo que pasa ahora y después; en listas enormes lo pide al proveedor la primera vez. */
     fun epgFor(ch: Channel): Pair<Programme?, Programme?> {
@@ -296,19 +305,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun wantEpg(ch: Channel) {
         val creds = shortEpgCreds ?: return
         if (ch.kind != ContentKind.LIVE || ch.tvgId.isBlank()) return
+        if (System.currentTimeMillis() < epgPausedUntil) return
         val key = ch.tvgId.lowercase()
         if (epg.containsKey(key) || !epgRequested.add(key)) return
         val sid = ch.url.substringBefore('?').substringAfterLast('/').substringBefore('.')
         if (sid.isEmpty() || !sid.all { it.isDigit() }) return
         viewModelScope.launch {
-            epgLimiter.acquire()
-            val progs = try {
-                withContext(Dispatchers.IO) { com.fitotv.data.XtreamApi.shortEpg(creds, sid) }
-            } catch (e: Exception) {
-                emptyList()
-            } finally {
-                epgLimiter.release()
-            }
+            val progs = epgMutex.withLock {
+                val now = System.currentTimeMillis()
+                while (epgTimes.isNotEmpty() && now - epgTimes.first() > 10 * 60_000L) epgTimes.removeFirst()
+                if (now < epgPausedUntil || epgTimes.size >= 120) {
+                    epgRequested.remove(key)
+                    return@withLock null
+                }
+                epgTimes.addLast(now)
+                val r = try {
+                    withContext(Dispatchers.IO) { com.fitotv.data.XtreamApi.shortEpg(creds, sid) }
+                } catch (e: Exception) {
+                    epgPausedUntil = System.currentTimeMillis() + 10 * 60_000L
+                    epgRequested.remove(key)
+                    null
+                }
+                kotlinx.coroutines.delay(350)
+                r
+            } ?: return@launch
             if (progs.isNotEmpty() && shortEpgCreds == creds) epg = epg + (key to progs)
         }
     }

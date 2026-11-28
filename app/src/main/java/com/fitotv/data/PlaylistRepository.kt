@@ -71,7 +71,16 @@ class PlaylistRepository(private val store: Store) {
         } catch (e: UnknownHostException) {
             throw e
         } catch (e: Exception) {
-            m3u()
+            try {
+                m3u()
+            } catch (m: IOException) {
+                // Ni la API ni el M3U: casi siempre es el proveedor (caído, cuenta con problema o
+                // un bloqueo temporal por muchas peticiones). Se dice así en lugar de "no existe".
+                if (m.message?.startsWith("No encontramos la lista") == true || m.message?.contains("no está respondiendo") == true) {
+                    throw IOException("Tu proveedor no entregó la lista. Puede estar fallando o tu cuenta tener un problema; prueba en un rato o pregúntale.")
+                }
+                throw m
+            }
         }
 
     /**
