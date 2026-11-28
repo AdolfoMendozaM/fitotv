@@ -56,13 +56,6 @@ wait_text() {
   return 1
 }
 
-rail() { # menú lateral: baja N lugares desde el avatar
-  for i in 1 2 3 4 5 6 7; do key KEYCODE_DPAD_LEFT; done
-  for i in 1 2 3 4 5 6 7 8; do key KEYCODE_DPAD_UP; done
-  for i in $(seq 1 "$1"); do key KEYCODE_DPAD_DOWN; done
-  key KEYCODE_DPAD_CENTER
-}
-
 # Ve cada canal unos segundos cambiando con el control (flecha abajo = siguiente canal).
 zap_all() {
   local n=$(ls "$DIR"/*.ts | wc -l)
@@ -73,6 +66,8 @@ zap_all() {
   done
 }
 
+adb wait-for-device
+adb shell pm path "$PKG" 2>/dev/null | grep -q package || adb install -r app/build/outputs/apk/github/debug/app-github-debug.apk
 adb logcat -c
 onboard
 curl -s -m 30 --data-urlencode "tipo=enlace" --data-urlencode "nombre=Sonido" \
@@ -81,16 +76,17 @@ curl -s -m 30 --data-urlencode "tipo=enlace" --data-urlencode "nombre=Sonido" \
 if wait_text "Ver mis canales"; then
   key KEYCODE_DPAD_CENTER
   sleep 5; shot S01-inicio
-  # Desde Inicio, igual que el recorrido: bajar a los canales y abrir uno.
-  for i in 1 2 3 4; do key KEYCODE_DPAD_DOWN; done
-  sleep 2; shot S02-inicio-canales
+  # Inicio abre con el foco en el primer canal y la vista previa (con sonido) toca el canal enfocado:
+  # recorrerlos con la flecha derecha prueba cada uno.
+  n=$(ls "$DIR"/*.ts | wc -l)
+  sleep 6; shot S02-previa-1
+  for k in $(seq 2 "$n"); do
+    key KEYCODE_DPAD_RIGHT
+    sleep 8; shot "S02-previa-$k"
+  done
+  # Y en pantalla completa: abrir el último y cambiar de canal con la flecha abajo.
   key KEYCODE_DPAD_CENTER
   zap_all S03-reproductor
-  key KEYCODE_BACK; sleep 2
-  # Y desde la Guía, por si en Inicio el foco quedó en otro lado.
-  rail 2; sleep 4; shot S04-guia
-  key KEYCODE_DPAD_CENTER
-  zap_all S05-reproductor
   key KEYCODE_BACK; sleep 2
 fi
 

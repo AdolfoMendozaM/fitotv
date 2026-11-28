@@ -57,7 +57,7 @@ jobs:
           profile: tv_1080p
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: bash .github/scripts/recorrido.sh && bash .github/scripts/sonido.sh && bash .github/scripts/lista-grande.sh
+          script: if [ "${GITHUB_REF_NAME#prueba-audio}" != "$GITHUB_REF_NAME" ]; then bash .github/scripts/sonido.sh; else bash .github/scripts/recorrido.sh && bash .github/scripts/sonido.sh && bash .github/scripts/lista-grande.sh; fi
 
       - uses: actions/upload-artifact@v4
         if: always()
