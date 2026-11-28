@@ -29,7 +29,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,7 +66,12 @@ import kotlinx.coroutines.delay
 
 /**
  * Campo de texto pensado para el control remoto: primero se enfoca como cualquier
- * botón y, al presionar OK, se abre el teclado de la tele. Atrás o "Listo" lo cierran.
+ * botón y, al presionar OK, se abre el teclado de la tele. "Listo" pasa al siguiente campo;
+ * Atrás lo cierra; con el teclado cerrado, las flechas salen del campo.
+ *
+ * El botón se queda debajo mientras escribes: así el foco pasa directo del botón al campo y de
+ * regreso. Antes el botón desaparecía un instante, el foco caía en lo primero de la pantalla
+ * (la pestaña "Enlace") y el formulario de usuario y contraseña se cambiaba solo.
  */
 @Composable
 fun TvTextField(
@@ -79,19 +86,29 @@ fun TvTextField(
 ) {
     var editing by remember { mutableStateOf(false) }
     var hadFocus by remember { mutableStateOf(false) }
-    var returnFocus by remember { mutableStateOf(false) }
-    // Hacia dónde seguir después de cerrar el campo con una flecha.
-    var pendingMove by remember { mutableStateOf<FocusDirection?>(null) }
     val editFr = remember { FocusRequester() }
     val boxFr = focusRequester ?: remember { FocusRequester() }
     val kb = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
+    val scope = rememberCoroutineScope()
     val shape = RoundedCornerShape(14.dp)
 
-    if (!editing) {
+    fun finish(move: FocusDirection?) {
+        if (!editing) return
+        kb?.hide()
+        runCatching { boxFr.requestFocus() }
+        editing = false
+        hadFocus = false
+        if (move != null) scope.launch {
+            delay(40)
+            focusManager.moveFocus(move)
+        }
+    }
+
+    Box(modifier.width(width).height(60.dp)) {
         FocusBox(
             onClick = { editing = true; hadFocus = false },
-            modifier = modifier.width(width).height(60.dp),
+            modifier = Modifier.matchParentSize(),
             shape = shape,
             radius = 14.dp,
             bg = Fc.S1,
@@ -110,68 +127,58 @@ fun TvTextField(
                     password -> "•".repeat(value.length.coerceAtMost(24))
                     else -> value
                 }
-                T(shown, size = 20.sp, color = if (value.isEmpty()) Fc.Dim else Fc.Text)
+                if (!editing) T(shown, size = 20.sp, color = if (value.isEmpty()) Fc.Dim else Fc.Text)
             }
         }
-        LaunchedEffect(returnFocus) {
-            if (returnFocus) {
-                delay(50)
-                runCatching { boxFr.requestFocus() }
-                returnFocus = false
-                pendingMove?.let { dir ->
-                    delay(30)
-                    focusManager.moveFocus(dir)
-                    pendingMove = null
-                }
-            }
-        }
-    } else {
-        BackHandler { editing = false; returnFocus = true; kb?.hide() }
-        BasicTextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = true,
-            textStyle = TextStyle(color = Fc.Text, fontSize = 20.sp, fontFamily = Jakarta),
-            cursorBrush = SolidColor(Fc.Menta),
-            visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboard, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { editing = false; returnFocus = true; kb?.hide() }),
-            modifier = modifier
-                .width(width)
-                .height(60.dp)
-                // Con el teclado cerrado, las flechas del control salen del campo hacia el siguiente.
-                // Antes se quedaban atrapadas adentro y todo lo que escribías caía en el mismo campo.
-                .onPreviewKeyEvent { e ->
-                    if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                    val dir = when (e.key) {
-                        Key.DirectionDown -> FocusDirection.Down
-                        Key.DirectionUp -> FocusDirection.Up
-                        Key.DirectionLeft -> FocusDirection.Left
-                        Key.DirectionRight -> FocusDirection.Right
-                        else -> return@onPreviewKeyEvent false
+        if (editing) {
+            BackHandler { finish(null) }
+            BasicTextField(
+                value = value,
+                onValueChange = onChange,
+                singleLine = true,
+                textStyle = TextStyle(color = Fc.Text, fontSize = 20.sp, fontFamily = Jakarta),
+                cursorBrush = SolidColor(Fc.Menta),
+                visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
+                keyboardOptions = KeyboardOptions(keyboardType = keyboard, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(
+                    onNext = { finish(FocusDirection.Next) },
+                    onDone = { finish(FocusDirection.Next) },
+                ),
+                modifier = Modifier
+                    .matchParentSize()
+                    // Con el teclado cerrado, las flechas del control salen del campo hacia el siguiente.
+                    // Antes se quedaban atrapadas adentro y todo lo que escribías caía en el mismo campo.
+                    .onPreviewKeyEvent { e ->
+                        if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        val dir = when (e.key) {
+                            Key.DirectionDown -> FocusDirection.Down
+                            Key.DirectionUp -> FocusDirection.Up
+                            Key.DirectionLeft -> FocusDirection.Left
+                            Key.DirectionRight -> FocusDirection.Right
+                            else -> return@onPreviewKeyEvent false
+                        }
+                        finish(dir)
+                        true
                     }
-                    kb?.hide()
-                    pendingMove = dir
-                    editing = false
-                    returnFocus = true
-                    true
-                }
-                .focusRequester(editFr)
-                .onFocusChanged {
-                    // Si el foco se va a otro lado (cerraste el teclado con Atrás y bajaste), se deja ir:
-                    // antes el campo lo volvía a jalar y no podías pasar al siguiente.
-                    if (it.isFocused) hadFocus = true
-                    else if (hadFocus) editing = false
-                }
-                .clip(shape)
-                .background(Fc.S1)
-                .border(2.dp, Fc.Menta, shape)
-                .padding(horizontal = 18.dp, vertical = 17.dp),
-        )
-        LaunchedEffect(Unit) {
-            delay(30)
-            runCatching { editFr.requestFocus() }
-            kb?.show()
+                    .focusRequester(editFr)
+                    .onFocusChanged {
+                        // Si el foco se va a otro lado sin pasar por aquí, solo se cierra el campo.
+                        if (it.isFocused) hadFocus = true
+                        else if (hadFocus) {
+                            editing = false
+                            hadFocus = false
+                        }
+                    }
+                    .clip(shape)
+                    .background(Fc.S1)
+                    .border(2.dp, Fc.Menta, shape)
+                    .padding(horizontal = 18.dp, vertical = 17.dp),
+            )
+            LaunchedEffect(Unit) {
+                delay(30)
+                runCatching { editFr.requestFocus() }
+                kb?.show()
+            }
         }
     }
 }
@@ -206,7 +213,7 @@ fun Spinner(size: Dp = 18.dp, color: Color = Fc.Menta) {
     }
 }
 
-/** Botones tipo pestaña (Enlace / Usuario y contraseña…). */
+/** Botones tipo pestaña (Enlace / Usuario y contraseña…). Se cambian con OK, no con solo pasar encima. */
 @Composable
 fun TabChips(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -219,7 +226,6 @@ fun TabChips(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
                 radius = 22.dp,
                 bg = if (on) Fc.Azul else Fc.S2,
                 focusedBg = if (on) Fc.Azul else Fc.S3,
-                onFocus = { onSelect(i) },
             ) {
                 Box(Modifier.height(44.dp).padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
                     T(label, size = 16.sp, weight = FontWeight.SemiBold, color = if (on) Color.White else Fc.Muted2)

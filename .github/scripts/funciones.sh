@@ -61,8 +61,9 @@ sleep 3
 
 # ---------------------------------------------------------------- 1) Usuario y contraseña con el control
 shot F01-agregar
-# Desde "Nombre de la lista", arriba queda en la pestaña "Usuario y contraseña" (y la elige).
+# Desde "Nombre de la lista", arriba queda en la pestaña "Usuario y contraseña"; OK la elige.
 key KEYCODE_DPAD_UP; shot F02-pestanas
+key KEYCODE_DPAD_CENTER
 key KEYCODE_DPAD_DOWN; shot F03-usuario-y-contrasena
 type_in "Premium"
 shot F04-nombre-escrito
