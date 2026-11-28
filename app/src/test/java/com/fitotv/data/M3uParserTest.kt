@@ -64,4 +64,23 @@ class M3uParserTest {
         assertEquals(parse().channels.map { it.id }, parse().channels.map { it.id })
         assertTrue(parse().channels.map { it.id }.toSet().size == 6)
     }
+
+    @Test
+    fun peliculasYSeriesSinPistasEnElEnlace() {
+        fun k(url: String, group: String, name: String, type: String = "") = M3uParser.classify(url, group, name, type)
+        assertEquals(ContentKind.MOVIE, k("http://h.com/play/123", "Movies / Telugu / 2026", "Evil Dead Burn"))
+        assertEquals(ContentKind.LIVE, k("http://h.com/stream/abc.m3u8", "Movies", "Pluto TV Películas"))
+        assertEquals(ContentKind.LIVE, k("http://h.com/stream/abc.m3u8", "PELICULAS", "Cinecanal"))
+        assertEquals(ContentKind.MOVIE, k("http://h.com/x/1.m3u8", "Películas Acción", "Duro de matar (1988)"))
+        assertEquals(ContentKind.SERIES, k("http://h.com/x/2", "Series 2024", "The Office S01E02"))
+        assertEquals(ContentKind.SERIES, k("http://h.com/x/2", "TV Shows", "Lost S1 E4"))
+        assertEquals(ContentKind.SERIES, k("http://h.com/x/3", "Series", "La casa de papel 1x05"))
+        assertEquals(ContentKind.LIVE, k("http://h.com/x/4", "Noticias", "Canal 2024"))
+        assertEquals(ContentKind.LIVE, k("http://h.com/user/pass/123.ts", "Movies / 2026", "Algo"))
+        assertEquals(ContentKind.MOVIE, k("http://h.com/v/9", "Cualquiera", "Algo", "movie"))
+        assertEquals(ContentKind.LIVE, k("http://h.com/live/u/p/1.m3u8", "Movies 2026", "HBO"))
+        assertEquals(ContentKind.LIVE, k("http://h.com/v/9", "VOD", "Algo sin año"))
+        assertEquals(ContentKind.LIVE, k("http://h.com/v/9", "Deportes", "ESPN 4x4"))
+        assertEquals(ContentKind.SERIES, k("http://h.com/v/9.mp4", "Lo nuevo", "Barrio T2 E05"))
+    }
 }

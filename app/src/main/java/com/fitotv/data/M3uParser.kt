@@ -29,7 +29,7 @@ object M3uParser {
             val attrs = pendingAttrs
             val name = (pendingName ?: attrs["tvg-name"] ?: url.substringAfterLast('/')).trim().ifEmpty { "Canal" }
             val group = (attrs["group-title"] ?: pendingGroup).trim().ifEmpty { "Sin grupo" }
-            val kind = classify(url, group)
+            val kind = classify(url, group, name, attrs["tvg-type"] ?: attrs["type"] ?: "")
             val num = if (kind == ContentKind.LIVE) {
                 liveNum += 1
                 attrs["tvg-chno"]?.trim()?.toIntOrNull() ?: liveNum
@@ -37,6 +37,8 @@ object M3uParser {
             val base = stableId(url, name)
             val dup = seen.getOrDefault(base, 0)
             seen[base] = dup + 1
+            // Episodios sueltos: se agrupan por serie y temporada con su nombre ("El Chema S01 E05").
+            val ep = if (kind == ContentKind.SERIES) SeriesNames.parse(name) else null
             out.add(
                 Channel(
                     id = if (dup == 0) base else "$base-$dup",
@@ -49,6 +51,9 @@ object M3uParser {
                     kind = kind,
                     userAgent = attrs["user-agent"] ?: userAgent,
                     referrer = referrer,
+                    seriesId = ep?.let { "m:" + it.show }.orEmpty(),
+                    season = ep?.season ?: 0,
+                    episode = ep?.episode ?: 0,
                 )
             )
             pendingName = null
@@ -104,16 +109,48 @@ object M3uParser {
             l.startsWith("rtsp://") || l.startsWith("udp://") || l.startsWith("rtp://")
     }
 
-    fun classify(url: String, group: String): ContentKind {
+    /**
+     * Qué es cada entrada: en vivo, película o serie.
+     * Primero lo que diga la lista (tvg-type), luego el enlace y al final el grupo y el nombre.
+     * Un grupo "Películas" a secas puede ser de canales en vivo, por eso se pide además un año
+     * (en el grupo o en el nombre) o un capítulo en el nombre.
+     */
+    fun classify(url: String, group: String, name: String = "", type: String = ""): ContentKind {
         val path = url.substringBefore('?').lowercase()
-        val g = group.lowercase()
+        val g = fold(group)
+        val n = fold(name)
+        when (type.trim().lowercase()) {
+            "movie", "movies", "vod", "film" -> return ContentKind.MOVIE
+            "series", "serie", "tvshow", "show" -> return ContentKind.SERIES
+            "live", "tv" -> return ContentKind.LIVE
+        }
         if (path.contains("/series/")) return ContentKind.SERIES
         if (path.contains("/movie/") || path.contains("/movies/")) return ContentKind.MOVIE
         if (movieExt.any { path.endsWith(it) }) {
-            return if (g.contains("serie")) ContentKind.SERIES else ContentKind.MOVIE
+            return if (g.contains("serie") || looksLikeEpisode(n)) ContentKind.SERIES else ContentKind.MOVIE
         }
+        if (path.contains("/live/") || path.endsWith(".ts")) return ContentKind.LIVE
+        val vodGroup = listOf("movie", "pelicula", "vod").any { g.contains(it) }
+        val seriesGroup = listOf("serie", "tv show", "tvshow", "temporada", "season").any { g.contains(it) }
+        val ep = looksLikeEpisode(n)
+        if (ep && (seriesGroup || vodGroup)) return ContentKind.SERIES
+        if (seriesGroup && (hasYear(g) || hasYear(n))) return ContentKind.SERIES
+        if (vodGroup && (hasYear(g) || hasYear(n))) return ContentKind.MOVIE
         return ContentKind.LIVE
     }
+
+    private val yearRegex = Regex("""(?<!\d)(19|20)\d{2}(?!\d)""")
+    private val episodeRegex = Regex("""(?<![\p{L}\p{N}])[st]\d+[ .:-]*e\d+|(?<![\p{L}\p{N}])\d{1,2}x\d{2}(?![\p{L}\p{N}])""")
+    private val episodeWords = listOf("temporada", "capitulo", "episodio", "episode", "season ")
+
+    internal fun hasYear(s: String): Boolean = yearRegex.containsMatchIn(s)
+
+    internal fun looksLikeEpisode(n: String): Boolean =
+        episodeWords.any { n.contains(it) } || episodeRegex.containsMatchIn(n)
+
+    private fun fold(s: String): String =
+        java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("""\p{M}+"""), "")
 
     private fun stableId(url: String, name: String): String {
         val h1 = url.hashCode().toLong() and 0xffffffffL

@@ -10,12 +10,12 @@ plugins {
 
 android {
     namespace = "com.fitotv"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.fitotv.app"
         minSdk = 22
-        targetSdk = 34
+        targetSdk = 36
         versionCode = (System.getenv("FITOTV_VERSION_CODE") ?: "1").toInt()
         versionName = System.getenv("FITOTV_VERSION_NAME") ?: "1.0.0"
     }

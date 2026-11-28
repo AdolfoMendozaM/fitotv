@@ -81,8 +81,12 @@ class FitoPlayer(context: Context, muted: Boolean, preview: Boolean = false) {
             )
             .setConstantBitrateSeekingEnabled(true)
         val sources = DefaultMediaSourceFactory(dataSource, extractors)
+        // La vista previa arranca con medio segundo de video: es chica y lo que importa es que se vea ya.
         val load = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(12_000, 50_000, 1_200, 2_500)
+            .apply {
+                if (preview) setBufferDurationsMs(2_000, 15_000, 500, 1_000)
+                else setBufferDurationsMs(12_000, 50_000, 1_000, 2_500)
+            }
             .build()
         // Sube a mejor calidad tras 5 s estables (por defecto son 10) y usa 75 % del ancho medido.
         val adaptive = AdaptiveTrackSelection.Factory(
@@ -126,6 +130,10 @@ class FitoPlayer(context: Context, muted: Boolean, preview: Boolean = false) {
         when {
             path.endsWith(".m3u8") || path.endsWith(".m3u") || path.contains("/hls/") -> b.setMimeType(MimeTypes.APPLICATION_M3U8)
             path.endsWith(".ts") -> b.setMimeType(MimeTypes.VIDEO_MP2T)
+            // Canales de Xtream sin extensión (".../usuario/clave/12345"): son MPEG-TS. Decirlo ahorra
+            // que el reproductor tenga que adivinar el formato antes de empezar.
+            ch.kind == com.fitotv.data.ContentKind.LIVE && path.substringAfterLast('/').let { it.isNotEmpty() && it.all { c -> c.isDigit() } } ->
+                b.setMimeType(MimeTypes.VIDEO_MP2T)
         }
         return b.build()
     }
@@ -183,7 +191,7 @@ fun LivePreview(channel: Channel?, modifier: Modifier = Modifier) {
         state = 0
         player.stop()
         if (channel != null) {
-            delay(700)
+            delay(450)
             player.play(channel)
         }
     }

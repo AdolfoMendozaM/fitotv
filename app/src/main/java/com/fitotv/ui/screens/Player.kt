@@ -69,8 +69,8 @@ import kotlinx.coroutines.delay
 fun PlayerScreen(vm: AppViewModel, s: Screen.Player) {
     val context = LocalContext.current
     val d by vm.data.collectAsState()
-    val zap = remember(s) { s.zap.mapNotNull { vm.byId[it] } }
-    var current by remember(s) { mutableStateOf(vm.byId[s.channelId]) }
+    val zap = remember(s) { s.zap.mapNotNull { vm.channel(it) } }
+    var current by remember(s) { mutableStateOf(vm.channel(s.channelId)) }
     val player = remember { FitoPlayer(context, muted = false) }
     var showInfo by remember { mutableStateOf(true) }
     var infoKey by remember { mutableIntStateOf(0) }
@@ -121,7 +121,10 @@ fun PlayerScreen(vm: AppViewModel, s: Screen.Player) {
                     if (ch != null && ch.kind != ContentKind.LIVE) {
                         val dur = player.exo.duration
                         vm.recordRecent(ch, dur, dur)
-                        vm.back()
+                        // En series sigue el próximo episodio de la temporada.
+                        val idx = zap.indexOfFirst { it.id == ch.id }
+                        val next = if (ch.kind == ContentKind.SERIES && idx >= 0) zap.getOrNull(idx + 1) else null
+                        if (next != null) current = next else vm.back()
                     }
                 }
             }
@@ -189,7 +192,7 @@ fun PlayerScreen(vm: AppViewModel, s: Screen.Player) {
         if (digits.isNotEmpty()) {
             delay(1_600)
             val n = digits.toIntOrNull()
-            val target = vm.channels.firstOrNull { it.kind == ContentKind.LIVE && it.num == n }
+            val target = vm.lib.live.firstOrNull { it.num == n }
             if (target != null) current = target else vm.sounds.play(Sfx.BACK)
             digits = ""
         }
@@ -357,7 +360,7 @@ private fun Shade(content: @Composable () -> Unit) {
 
 @Composable
 private fun LiveBanner(vm: AppViewModel, ch: Channel, avatar: String?, profileName: String, listName: String) {
-    val (now, next) = epgFor(vm.epg, ch)
+    val (now, next) = vm.epgFor(ch)
     Shade {
         Box(Modifier.fillMaxSize()) {
             Row(

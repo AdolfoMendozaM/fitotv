@@ -10,7 +10,6 @@ import androidx.lifecycle.viewModelScope
 import com.fitotv.FitoApp
 import com.fitotv.data.AppData
 import com.fitotv.data.Channel
-import com.fitotv.data.ChannelNames
 import com.fitotv.data.ContentKind
 import com.fitotv.data.ListKind
 import com.fitotv.data.Playlist
@@ -29,7 +28,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
-import java.text.Normalizer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,6 +45,7 @@ sealed interface Screen {
     data object Groups : Screen
     data class Catalog(val kind: ContentKind) : Screen
     data object Search : Screen
+    data class Series(val showId: String) : Screen
     data object Settings : Screen
     data class Player(val channelId: String, val zap: List<String>, val resumeMs: Long = 0) : Screen
 }
@@ -105,12 +104,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     var profileId by mutableStateOf<String?>(null)
         private set
-    var channels by mutableStateOf<List<Channel>>(emptyList())
+    /** Todo lo de la lista activa ya ordenado e indexado (se arma fuera del hilo de la pantalla). */
+    var lib by mutableStateOf(Library.EMPTY)
         private set
-    var byId by mutableStateOf<Map<String, Channel>>(emptyMap())
-        private set
-    var groups by mutableStateOf<List<Group>>(emptyList())
-        private set
+    val channels: List<Channel> get() = lib.all
+    val byId: Map<String, Channel> get() = lib.byId
+    val groups: List<Group> get() = lib.groups
+
+    /** Episodios que no vienen en la lista guardada (series de Xtream, se piden al abrirlas). */
+    private val extra = java.util.concurrent.ConcurrentHashMap<String, Channel>()
+
+    fun channel(id: String): Channel? = lib.byId[id] ?: extra[id]
     var epg by mutableStateOf<Map<String, List<Programme>>>(emptyMap())
         private set
     var selectedGroup by mutableStateOf<String?>(null)
@@ -226,7 +230,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(settings = it.settings.copy(lastProfileId = id)) }
         viewModelScope.launch {
             loadActive()
+            refreshIfStale()
+        }
+    }
+
+    /**
+     * Al abrir FitoTV se usa la copia guardada (abre al instante) y la lista se vuelve a bajar
+     * en segundo plano solo si tiene más de 6 horas. Antes se bajaba completa en cada arranque.
+     */
+    private fun refreshIfStale() {
+        val list = activeList() ?: return
+        val age = System.currentTimeMillis() - list.updatedAt
+        if (lib.all.isEmpty() || list.updatedAt == 0L || age > 6 * 3600_000L) {
             refreshActive(quietWhenSame = true)
+        } else {
+            refreshEpgIfOld(list)
         }
     }
 
@@ -241,21 +259,58 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val all = repo.channels(list.id)
         applyChannels(all)
         epg = epgRepo.load(list.id)
+        lastEpgAt = epgRepo.savedAt(list.id)
         val last = profileData().lastGroup[list.id]
         selectedGroup = groups.firstOrNull { it.name == last }?.name ?: groups.firstOrNull()?.name
         loading = false
     }
 
-    private fun applyChannels(raw: List<Channel>) {
-        // Nombres limpios para pantalla ("≡P2 - Canal 5" → "Canal 5"); los id no cambian.
-        val all = ChannelNames.clean(raw)
+    /** Los nombres ya vienen limpios desde que se bajó la lista; aquí solo se indexa, fuera de la pantalla. */
+    private suspend fun applyChannels(raw: List<Channel>) {
         val kids = profile()?.kids == true
-        val visible = if (kids) all.filter { isKidsGroup(it.group) } else all
-        channels = visible
-        byId = visible.associateBy { it.id }
-        val counts = LinkedHashMap<String, Int>()
-        visible.forEach { if (it.kind == ContentKind.LIVE) counts[it.group] = (counts[it.group] ?: 0) + 1 }
-        groups = counts.map { Group(it.key, it.value) }
+        lib = withContext(Dispatchers.Default) { Library.build(raw, kids) }
+        // Proveedores enormes de Xtream: la guía completa (XMLTV) pesa cientos de megas y llenaría la
+        // memoria; se pide canal por canal lo que está en pantalla.
+        val list = activeList()
+        val creds = when (list?.kind) {
+            ListKind.XTREAM -> com.fitotv.data.XtreamApi.Creds(list.server, list.user, list.pass)
+            ListKind.URL -> com.fitotv.data.XtreamApi.credsFromUrl(list.url)
+            else -> null
+        }
+        shortEpgCreds = if (creds != null && lib.live.size > 2500) creds else null
+        epgRequested.clear()
+    }
+
+    // ----- Guía por canal (listas enormes de Xtream) -----
+
+    private var shortEpgCreds: com.fitotv.data.XtreamApi.Creds? = null
+    private val epgRequested = HashSet<String>()
+    private val epgLimiter = kotlinx.coroutines.sync.Semaphore(3)
+
+    /** Lo que pasa ahora y después; en listas enormes lo pide al proveedor la primera vez. */
+    fun epgFor(ch: Channel): Pair<Programme?, Programme?> {
+        wantEpg(ch)
+        return com.fitotv.ui.screens.epgFor(epg, ch)
+    }
+
+    fun wantEpg(ch: Channel) {
+        val creds = shortEpgCreds ?: return
+        if (ch.kind != ContentKind.LIVE || ch.tvgId.isBlank()) return
+        val key = ch.tvgId.lowercase()
+        if (epg.containsKey(key) || !epgRequested.add(key)) return
+        val sid = ch.url.substringBefore('?').substringAfterLast('/').substringBefore('.')
+        if (sid.isEmpty() || !sid.all { it.isDigit() }) return
+        viewModelScope.launch {
+            epgLimiter.acquire()
+            val progs = try {
+                withContext(Dispatchers.IO) { com.fitotv.data.XtreamApi.shortEpg(creds, sid) }
+            } catch (e: Exception) {
+                emptyList()
+            } finally {
+                epgLimiter.release()
+            }
+            if (progs.isNotEmpty() && shortEpgCreds == creds) epg = epg + (key to progs)
+        }
     }
 
     fun refreshActive(quietWhenSame: Boolean = false) {
@@ -263,6 +318,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             when (val r = repo.refresh(list)) {
                 is RefreshResult.Ok -> {
+                    if (r.remap.isNotEmpty()) keepFavoritesAndRecents(list.id, r.remap)
+                    if (activeList()?.id != list.id) return@launch
                     applyChannels(repo.channels(list.id))
                     if (selectedGroup == null || groups.none { it.name == selectedGroup }) selectedGroup = groups.firstOrNull()?.name
                     when {
@@ -279,19 +336,38 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     warn = true,
                 ) else Toast("No pudimos abrir ${list.name}", r.message, warn = true)
             }
-            // La guía se actualiza cada 12 horas o si todavía no hay.
-            val fresh = activeList() ?: return@launch
-            val all = repo.channels(fresh.id)
-            if (epg.isEmpty() || System.currentTimeMillis() - lastEpgAt > 12 * 3600_000L) {
-                if (epgRepo.refresh(fresh, all)) {
-                    lastEpgAt = System.currentTimeMillis()
-                    epg = epgRepo.cached(fresh.id)
-                }
+            activeList()?.let { refreshEpgIfOld(it) }
+        }
+    }
+
+    /** La guía se actualiza cada 12 horas o si todavía no hay; en segundo plano y con calma. */
+    private fun refreshEpgIfOld(list: Playlist) {
+        if (shortEpgCreds != null) return
+        if (epg.isNotEmpty() && System.currentTimeMillis() - lastEpgAt < 12 * 3600_000L) return
+        viewModelScope.launch {
+            // Que primero se acomode la pantalla.
+            kotlinx.coroutines.delay(15_000)
+            if (activeList()?.id != list.id) return@launch
+            if (epgRepo.refresh(list, lib.live)) {
+                lastEpgAt = System.currentTimeMillis()
+                if (activeList()?.id == list.id) epg = epgRepo.cached(list.id)
             }
         }
     }
 
     private var lastEpgAt = 0L
+
+    /** Los favoritos y lo que estabas viendo siguen ahí aunque el canal haya cambiado de id. */
+    private fun keepFavoritesAndRecents(listId: String, remap: Map<String, String>) {
+        store.update { d ->
+            d.copy(profileData = d.profileData.mapValues { (_, pd) ->
+                pd.copy(
+                    favorites = pd.favorites.map { remap[it] ?: it }.distinct(),
+                    recents = pd.recents.map { if (it.listId == listId) it.copy(channelId = remap[it.channelId] ?: it.channelId) else it },
+                )
+            })
+        }
+    }
 
     private fun savedWhen(at: Long): String {
         if (at <= 0) return ""
@@ -310,12 +386,38 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun channelsOf(group: String?): List<Channel> {
         if (group == FAVORITES) {
             val favs = profileData().favorites
-            return favs.mapNotNull { byId[it] }
+            return favs.mapNotNull { lib.byId[it] }.filter { it.kind == ContentKind.LIVE }
         }
-        return channels.filter { it.kind == ContentKind.LIVE && (group == null || it.group == group) }
+        if (group == null) return lib.live
+        return lib.liveByGroup[group] ?: emptyList()
     }
 
-    fun vod(kind: ContentKind): List<Channel> = channels.filter { it.kind == kind }
+    /** Películas o series (una entrada por serie) con sus categorías. */
+    fun catalog(kind: ContentKind): Catalog = if (kind == ContentKind.MOVIE) lib.movies else lib.shows
+
+    /** Temporadas y episodios de una serie: del proveedor (Xtream) o de los episodios sueltos de la lista. */
+    suspend fun seriesInfo(show: Channel): Result<com.fitotv.data.XtreamApi.SeriesInfo> {
+        val list = activeList() ?: return Result.failure(IOException("No hay una lista abierta"))
+        return try {
+            val info = if (show.seriesId.startsWith("x:")) {
+                repo.seriesInfo(list, show)
+            } else {
+                val eps = lib.episodesByShow[show.seriesId].orEmpty()
+                com.fitotv.data.XtreamApi.SeriesInfo(
+                    plot = "",
+                    cover = show.logo,
+                    year = "",
+                    seasons = eps.groupBy { it.season }.toSortedMap().map { (n, list) ->
+                        com.fitotv.data.XtreamApi.Season(n, if (n > 0) "Temporada $n" else "Episodios", list)
+                    },
+                )
+            }
+            info.seasons.forEach { s -> s.episodes.forEach { e -> if (lib.byId[e.id] == null) extra[e.id] = e } }
+            Result.success(info)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     // ----- Perfiles -----
 
@@ -398,6 +500,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun refreshEpgInBackground(listId: String) {
+        if (shortEpgCreds != null) return
         viewModelScope.launch {
             val p = data.value.playlists.firstOrNull { it.id == listId } ?: return@launch
             if (epgRepo.refresh(p, repo.channels(listId))) {
@@ -437,7 +540,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun recordRecent(channel: Channel, positionMs: Long = 0, durationMs: Long = 0) {
         val list = activeList() ?: return
-        val item = RecentItem(channel.id, list.id, channel.kind, System.currentTimeMillis(), positionMs, durationMs)
+        // Los episodios de Xtream no están en la lista guardada: se guarda una copia para "Continuar viendo".
+        val snap = if (lib.byId[channel.id] == null) channel else null
+        val item = RecentItem(channel.id, list.id, channel.kind, System.currentTimeMillis(), positionMs, durationMs, snap)
         updateProfileData { pd ->
             // Si ya casi terminó una película o episodio, lo quitamos de "Continuar viendo".
             val finished = channel.kind != ContentKind.LIVE && durationMs > 0 && positionMs > durationMs * 0.95
@@ -450,7 +555,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val list = activeList() ?: return emptyList()
         return profileData().recents.asSequence()
             .filter { it.listId == list.id && (it.kind == ContentKind.LIVE) == kindLive }
-            .mapNotNull { r -> byId[r.channelId]?.let { it to r } }
+            .mapNotNull { r ->
+                val ch = lib.byId[r.channelId] ?: r.snapshot?.also { extra[it.id] = it }
+                ch?.let { it to r }
+            }
             .take(12)
             .toList()
     }
@@ -470,24 +578,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         go(Screen.Player(channel.id, zap.map { it.id }, resume))
     }
 
-    fun search(query: String): List<Channel> {
-        val q = fold(query.trim())
-        if (q.length < 2) return emptyList()
-        return channels.asSequence().filter { fold(it.name).contains(q) }.take(60).toList()
+    suspend fun search(query: String): List<Channel> {
+        val l = lib
+        return withContext(Dispatchers.Default) { l.search(query) }
     }
 
     companion object {
         /** Grupo especial con los favoritos del perfil. */
         const val FAVORITES = "\u0000favoritos"
 
-        private val kidsWords = listOf("infantil", "kids", "nino", "ninos", "children", "cartoon", "caricatura", "animad", "familia")
+        fun fold(s: String): String = com.fitotv.data.Fold.fold(s)
 
-        fun fold(s: String): String =
-            Normalizer.normalize(s.lowercase(Locale.ROOT), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
-
-        fun isKidsGroup(group: String): Boolean {
-            val g = fold(group)
-            return kidsWords.any { g.contains(it) }
-        }
+        fun isKidsGroup(group: String): Boolean = com.fitotv.data.Fold.isKidsGroup(group)
     }
 }

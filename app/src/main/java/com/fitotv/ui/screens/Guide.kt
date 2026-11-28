@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -178,6 +179,7 @@ private fun GuideContent(vm: AppViewModel, channels: List<Channel>, groupName: S
                     contentPadding = PaddingValues(top = 6.dp, bottom = 24.dp),
                 ) {
                     itemsIndexed(channels, key = { _, c -> c.id }) { i, ch ->
+                        LaunchedEffect(ch.id) { vm.wantEpg(ch) }
                         val progs = remember(vm.epg, ch.id) {
                             if (ch.tvgId.isBlank()) emptyList()
                             else vm.epg[ch.tvgId.lowercase()].orEmpty().filter { it.stop > winStart && it.start < winEnd }

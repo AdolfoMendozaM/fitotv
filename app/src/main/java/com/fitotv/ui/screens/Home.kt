@@ -200,7 +200,7 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
                         ) {
                             itemsIndexed(liveRecents, key = { _, p -> "l" + p.first.id }) { i, (ch, r) ->
                                 RecentChannelCard(
-                                    ch, epgFor(vm.epg, ch).first, r.at,
+                                    ch, vm.epgFor(ch).first, r.at,
                                     onClick = { playLive(ch, zap) },
                                     onFocus = { hero = HeroItem.Live(ch); compact = false },
                                     focusRequester = if (i == 0 && firstSection == 1) firstFr else null,
@@ -263,7 +263,7 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
                     rows[r].forEachIndexed { i, ch ->
                         ChannelCard(
                             ch,
-                            epgFor(vm.epg, ch).first,
+                            vm.epgFor(ch).first,
                             onClick = { playLive(ch, gridChannels) },
                             // Sin recientes arriba, la primera fila de canales aún cabe con todo el encabezado.
                             onFocus = { hero = HeroItem.Live(ch); compact = r >= 1 || firstSection != 3 },
@@ -345,7 +345,7 @@ private fun Hero(
                             T(list.name.take(1).uppercase(), size = 14.sp, color = Fc.Noche, weight = FontWeight.Bold)
                         }
                         T(list.name, size = 15.sp, weight = FontWeight.SemiBold)
-                        T("${vm.channels.count { it.kind == ContentKind.LIVE }} canales", size = 15.sp, color = Fc.Muted)
+                        T("${vm.lib.live.size} canales", size = 15.sp, color = Fc.Muted)
                         Ico(Icons.CHEVRON_DOWN, 18.dp, Fc.Muted, stroke = 2.2f)
                     }
                 }
@@ -371,7 +371,7 @@ private fun Hero(
                     }
                 }
                 is HeroItem.Live -> {
-                    val (now, next) = epgFor(vm.epg, item.ch)
+                    val (now, next) = vm.epgFor(item.ch)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (item.ch.num > 0) T(item.ch.num.toString(), size = 30.sp, display = true, color = Fc.Num)
                         ChannelLogo(item.ch.name, item.ch.logo, width = 60.dp, height = 36.dp, corner = 9.dp, fontSize = 11f)
