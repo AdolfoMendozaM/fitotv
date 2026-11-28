@@ -82,6 +82,8 @@ data class Channel(
     val seriesId: String = "",
     val season: Int = 0,
     val episode: Int = 0,
+    /** Cuándo lo subió el proveedor (segundos), si lo dice. Sirve para ordenar de lo más nuevo a lo más viejo. */
+    val added: Long = 0,
 ) {
     /** Una serie completa: se abre para ver sus temporadas en lugar de reproducirse. */
     val isShow: Boolean get() = kind == ContentKind.SERIES && url.isEmpty() && seriesId.isNotEmpty()

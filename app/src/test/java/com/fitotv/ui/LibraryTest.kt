@@ -60,4 +60,21 @@ class LibraryTest {
         assertEquals(listOf("a"), lib.live.map { it.id })
         assertEquals(ContentKind.LIVE, lib.live[0].kind)
     }
+
+    @Test
+    fun loMasNuevoPrimero() {
+        val raw = listOf(
+            Channel("m1", 0, "Vieja", "http://s/movie/u/p/10.mp4", group = "Acción", kind = ContentKind.MOVIE, added = 1_600_000_000),
+            Channel("m2", 0, "Nueva", "http://s/movie/u/p/11.mp4", group = "Acción", kind = ContentKind.MOVIE, added = 1_700_000_000),
+            Channel("m3", 0, "Sin fecha", "http://s/movie/u/p/5.mp4", group = "Drama", kind = ContentKind.MOVIE),
+            Channel("e1", 0, "Serie A S01 E01", "http://s/series/u/p/100.mp4", group = "S", kind = ContentKind.SERIES, seriesId = "m:Serie A", season = 1, episode = 1),
+            Channel("e2", 0, "Serie B S01 E01", "http://s/series/u/p/300.mp4", group = "S", kind = ContentKind.SERIES, seriesId = "m:Serie B", season = 1, episode = 1),
+            Channel("e3", 0, "Serie A S01 E02", "http://s/series/u/p/200.mp4", group = "S", kind = ContentKind.SERIES, seriesId = "m:Serie A", season = 1, episode = 2),
+        )
+        val lib = Library.build(raw, kids = false)
+        assertEquals(listOf("Nueva", "Vieja", "Sin fecha"), lib.movies.items.map { it.name })
+        assertEquals(listOf("Nueva", "Vieja"), lib.movies.byCat["Acción"]!!.map { it.name })
+        // Serie B tiene el episodio más nuevo (300).
+        assertEquals(listOf("Serie B", "Serie A"), lib.shows.items.map { it.name })
+    }
 }

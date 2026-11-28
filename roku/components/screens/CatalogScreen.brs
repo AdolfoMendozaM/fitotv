@@ -23,7 +23,19 @@ sub onActiveChange()
         m.listName = "tu lista"
         if st.activeList <> invalid then m.listName = st.activeList.name
         markProgress()
+        ' Al regresar de una película o serie, todo se queda como estaba (mismo póster enfocado).
+        if m.builtFor <> invalid and m.global.content <> invalid and m.builtFor.isSameNode(m.global.content) and m.grid <> invalid then
+            if m.inRail then
+                m.top.setFocus(true)
+            else if m.zone = "grid" and not m.empty then
+                m.grid.setFocus(true)
+            else
+                m.top.setFocus(true)
+            end if
+            return
+        end if
         build()
+        m.builtFor = m.global.content
     end if
 end sub
 

@@ -15,8 +15,26 @@ sub work()
         end if
         holder = CreateObject("roSGNode", "ContentNode")
         movie = p.xtAction = "get_vod_streams"
+        ' De lo más nuevo a lo más viejo: la fecha del proveedor o, si no la manda, el número del video.
+        items = []
         for each part in xtParts(r.text)
             o = xtObj(part)
+            if o <> invalid then
+                k = 0
+                if movie then
+                    k = numOf(o.added)
+                    if k = 0 then k = numOf(o.stream_id)
+                else
+                    k = numOf(o.last_modified)
+                    if k = 0 then k = numOf(o.added)
+                    if k = 0 then k = numOf(o.series_id)
+                end if
+                items.Push({k: k, o: o})
+            end if
+        end for
+        items.SortBy("k", "r")
+        for each it in items
+            o = it.o
             if o <> invalid then
                 if movie then
                     id = anyStr(o.stream_id)

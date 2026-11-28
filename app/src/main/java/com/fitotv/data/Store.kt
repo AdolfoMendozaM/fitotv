@@ -22,7 +22,8 @@ import java.io.FileOutputStream
 class Store(private val dir: File) {
 
     private companion object {
-        const val MAGIC = 0x46540002 // "FT" + versión 2 del formato
+        const val MAGIC = 0x46540003 // "FT" + versión 3 del formato (con fecha de subida)
+        const val MAGIC_V2 = 0x46540002
     }
 
     private val json = Json {
@@ -67,6 +68,7 @@ class Store(private val dir: File) {
                 out.str(c.id); out.writeInt(c.num); out.str(c.name); out.str(c.url); out.str(c.logo)
                 out.str(c.group); out.str(c.tvgId); out.writeByte(c.kind.ordinal); out.str(c.userAgent)
                 out.str(c.referrer); out.str(c.seriesId); out.writeShort(c.season); out.writeShort(c.episode)
+                out.writeLong(c.added)
             }
         }
         if (!tmp.renameTo(target)) {
@@ -83,7 +85,9 @@ class Store(private val dir: File) {
         if (bin.exists()) {
             try {
                 DataInputStream(BufferedInputStream(FileInputStream(bin), 1 shl 16)).use { inp ->
-                    if (inp.readInt() != MAGIC) return null
+                    val version = inp.readInt()
+                    if (version != MAGIC && version != MAGIC_V2) return null
+                    val withDate = version == MAGIC
                     val n = inp.readInt()
                     val out = ArrayList<Channel>(n)
                     // Los grupos se repiten miles de veces: una sola copia de cada texto.
@@ -96,6 +100,7 @@ class Store(private val dir: File) {
                                 group = shared(inp.str()), tvgId = inp.str(), kind = ContentKind.entries[inp.readByte().toInt()],
                                 userAgent = shared(inp.str()), referrer = shared(inp.str()), seriesId = shared(inp.str()),
                                 season = inp.readShort().toInt(), episode = inp.readShort().toInt(),
+                                added = if (withDate) inp.readLong() else 0,
                             )
                         )
                     }
@@ -144,7 +149,8 @@ class Store(private val dir: File) {
         if (!f.exists()) return null
         return try {
             DataInputStream(BufferedInputStream(FileInputStream(f), 1 shl 16)).use { inp ->
-                if (inp.readInt() != MAGIC) return null
+                val version = inp.readInt()
+                if (version != MAGIC && version != MAGIC_V2) return null
                 val n = inp.readInt()
                 val out = HashMap<String, List<Programme>>(n * 2)
                 repeat(n) {

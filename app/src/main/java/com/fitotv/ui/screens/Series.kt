@@ -46,6 +46,7 @@ import com.fitotv.ui.components.MainScaffold
 import com.fitotv.ui.components.Spinner
 import com.fitotv.ui.components.Tab
 import com.fitotv.ui.rememberAutoFocus
+import com.fitotv.ui.rememberEntryFocus
 import com.fitotv.ui.theme.Fc
 import com.fitotv.ui.theme.T
 
@@ -149,7 +150,7 @@ private fun SeasonsAndEpisodes(vm: AppViewModel, show: Channel, info: XtreamApi.
     var season by remember(info) { mutableIntStateOf(startSeason) }
     val current = info.seasons[season.coerceIn(0, info.seasons.lastIndex)]
     val resumeId = remember(current, recents) { current.episodes.firstOrNull { progress[it.id] != null }?.id }
-    val firstFr = rememberAutoFocus(show.id)
+    val ef = rememberEntryFocus(vm, "series-${show.id}", show.id)
 
     Column(Modifier.fillMaxSize()) {
         if (info.seasons.size > 1) {
@@ -182,8 +183,11 @@ private fun SeasonsAndEpisodes(vm: AppViewModel, show: Channel, info: XtreamApi.
                 EpisodeRow(
                     ep = ep,
                     fraction = vodFraction(r),
-                    focusRequester = if ((resumeId == null && idx == 0) || ep.id == resumeId) firstFr else null,
-                    onClick = { vm.play(ep, current.episodes) },
+                    focusRequester = ef.of(ep.id, (resumeId == null && idx == 0) || ep.id == resumeId),
+                    onClick = {
+                        vm.markReturn("series-${show.id}", ep.id)
+                        vm.play(ep, current.episodes)
+                    },
                 )
             }
         }

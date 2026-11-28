@@ -36,7 +36,7 @@ sub onActiveChange()
     if m.top.active then
         st = app("getState")
         if st.profile <> invalid then m.rail.avatar = st.profile.avatar
-        if m.query <> "" then runSearch()
+        if m.query <> "" and m.grid.content = invalid then runSearch()
         render()
         focus()
     end if

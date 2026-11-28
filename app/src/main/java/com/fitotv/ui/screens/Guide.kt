@@ -49,6 +49,7 @@ import com.fitotv.ui.components.MainScaffold
 import com.fitotv.ui.components.ProgressBar
 import com.fitotv.ui.components.Tab
 import com.fitotv.ui.rememberAutoFocus
+import com.fitotv.ui.rememberEntryFocus
 import com.fitotv.ui.theme.Fc
 import com.fitotv.ui.theme.T
 
@@ -76,7 +77,7 @@ private fun GuideContent(vm: AppViewModel, channels: List<Channel>, groupName: S
     val winEnd = winStart + SPAN_MIN * 60_000L
     var focusedCh by remember { mutableStateOf(channels.first()) }
     var focusedProg by remember { mutableStateOf<Programme?>(null) }
-    val firstFr = rememberAutoFocus()
+    val ef = rememberEntryFocus(vm, "guide")
 
     Column(
         Modifier
@@ -195,9 +196,12 @@ private fun GuideContent(vm: AppViewModel, channels: List<Channel>, groupName: S
                             now = now,
                             x = ::x,
                             highlighted = ch.id == focusedCh.id,
-                            firstFr = if (i == 0) firstFr else null,
+                            firstFr = ef.of(ch.id, i == 0),
                             onFocus = { p -> focusedCh = ch; focusedProg = p },
-                            onPlay = { vm.play(ch, channels) },
+                            onPlay = {
+                                vm.markReturn("guide", ch.id)
+                                vm.play(ch, channels)
+                            },
                         )
                     }
                 }
