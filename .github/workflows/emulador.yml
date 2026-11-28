@@ -39,7 +39,6 @@ jobs:
           ffmpeg -hide_banner -loglevel error $v -c:a ac3 -b:a 192k -f mpegts ac3.ts
           ffmpeg -hide_banner -loglevel error $v -c:a eac3 -b:a 192k -f mpegts eac3.ts
           ffmpeg -hide_banner -loglevel error $v -c:a mp2 -b:a 192k -f mpegts mp2.ts
-          ffmpeg -hide_banner -loglevel error $v -c:a dca -strict -2 -f mpegts dts.ts || rm -f dts.ts
           ls -la
 
       - name: Activar aceleración

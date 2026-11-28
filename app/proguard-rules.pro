@@ -12,3 +12,8 @@
 -dontwarn org.conscrypt.**
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
+
+# Decodificador de sonido FFmpeg: su parte nativa llama a estas clases por nombre.
+-keep class androidx.media3.decoder.ffmpeg.** { *; }
+-keep class androidx.media3.decoder.SimpleDecoderOutputBuffer { *; }
+-keep class androidx.media3.decoder.DecoderInputBuffer { *; }
