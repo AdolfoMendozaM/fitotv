@@ -115,10 +115,11 @@ class Library private constructor(
             // De lo más nuevo a lo más viejo (en "Todas" y dentro de cada categoría).
             val showRecency = HashMap<String, Long>()
             episodes.forEach { (key, eps) -> showRecency[key] = eps.maxOf { recency(it) } }
-            val moviesByDate = movies.sortedByDescending { recency(it) }
-            val showsByDate = shows.sortedByDescending { s ->
-                if (s.isShow && s.url.isEmpty() && s.seriesId.startsWith("m:")) showRecency[s.seriesId] ?: 0L else recency(s)
-            }
+            // La clave se calcula una vez por elemento (no en cada comparación): con 100 mil películas se nota.
+            val moviesByDate = movies.map { it to recency(it) }.sortedByDescending { it.second }.map { it.first }
+            val showsByDate = shows.map { s ->
+                s to (if (s.isShow && s.seriesId.startsWith("m:")) showRecency[s.seriesId] ?: 0L else recency(s))
+            }.sortedByDescending { it.second }.map { it.first }
             val byId = HashMap<String, Channel>(visible.size + shows.size)
             visible.forEach { byId[it.id] = it }
             shows.forEach { byId[it.id] = it }

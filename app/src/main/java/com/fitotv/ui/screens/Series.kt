@@ -142,15 +142,16 @@ fun SeriesScreen(vm: AppViewModel, s: Screen.Series) {
 @Composable
 private fun SeasonsAndEpisodes(vm: AppViewModel, show: Channel, info: XtreamApi.SeriesInfo, recents: List<com.fitotv.data.RecentItem>) {
     val progress = remember(recents) { recents.associateBy { it.channelId } }
-    // Empieza en la temporada del último episodio que viste.
+    val ef = rememberEntryFocus(vm, "series-${show.id}", show.id)
+    // Si regresas de un episodio, en su temporada; si no, en la del último episodio que viste.
     val startSeason = remember(info) {
-        val last = recents.firstOrNull { r -> info.seasons.any { s -> s.episodes.any { it.id == r.channelId } } }
-        info.seasons.indexOfFirst { s -> s.episodes.any { it.id == last?.channelId } }.coerceAtLeast(0)
+        val target = ef.backKey
+            ?: recents.firstOrNull { r -> info.seasons.any { s -> s.episodes.any { it.id == r.channelId } } }?.channelId
+        info.seasons.indexOfFirst { s -> s.episodes.any { it.id == target } }.coerceAtLeast(0)
     }
     var season by remember(info) { mutableIntStateOf(startSeason) }
     val current = info.seasons[season.coerceIn(0, info.seasons.lastIndex)]
     val resumeId = remember(current, recents) { current.episodes.firstOrNull { progress[it.id] != null }?.id }
-    val ef = rememberEntryFocus(vm, "series-${show.id}", show.id)
 
     Column(Modifier.fillMaxSize()) {
         if (info.seasons.size > 1) {
