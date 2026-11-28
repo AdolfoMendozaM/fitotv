@@ -269,6 +269,48 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun applyChannels(raw: List<Channel>) {
         val kids = profile()?.kids == true
         lib = withContext(Dispatchers.Default) { Library.build(raw, kids) }
+        // Proveedores enormes de Xtream: la guía completa (XMLTV) pesa cientos de megas y llenaría la
+        // memoria; se pide canal por canal lo que está en pantalla.
+        val list = activeList()
+        val creds = when (list?.kind) {
+            ListKind.XTREAM -> com.fitotv.data.XtreamApi.Creds(list.server, list.user, list.pass)
+            ListKind.URL -> com.fitotv.data.XtreamApi.credsFromUrl(list.url)
+            else -> null
+        }
+        shortEpgCreds = if (creds != null && lib.live.size > 2500) creds else null
+        epgRequested.clear()
+    }
+
+    // ----- Guía por canal (listas enormes de Xtream) -----
+
+    private var shortEpgCreds: com.fitotv.data.XtreamApi.Creds? = null
+    private val epgRequested = HashSet<String>()
+    private val epgLimiter = kotlinx.coroutines.sync.Semaphore(3)
+
+    /** Lo que pasa ahora y después; en listas enormes lo pide al proveedor la primera vez. */
+    fun epgFor(ch: Channel): Pair<Programme?, Programme?> {
+        wantEpg(ch)
+        return com.fitotv.ui.screens.epgFor(epg, ch)
+    }
+
+    fun wantEpg(ch: Channel) {
+        val creds = shortEpgCreds ?: return
+        if (ch.kind != ContentKind.LIVE || ch.tvgId.isBlank()) return
+        val key = ch.tvgId.lowercase()
+        if (epg.containsKey(key) || !epgRequested.add(key)) return
+        val sid = ch.url.substringBefore('?').substringAfterLast('/').substringBefore('.')
+        if (sid.isEmpty() || !sid.all { it.isDigit() }) return
+        viewModelScope.launch {
+            epgLimiter.acquire()
+            val progs = try {
+                withContext(Dispatchers.IO) { com.fitotv.data.XtreamApi.shortEpg(creds, sid) }
+            } catch (e: Exception) {
+                emptyList()
+            } finally {
+                epgLimiter.release()
+            }
+            if (progs.isNotEmpty() && shortEpgCreds == creds) epg = epg + (key to progs)
+        }
     }
 
     fun refreshActive(quietWhenSame: Boolean = false) {
@@ -300,6 +342,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** La guía se actualiza cada 12 horas o si todavía no hay; en segundo plano y con calma. */
     private fun refreshEpgIfOld(list: Playlist) {
+        if (shortEpgCreds != null) return
         if (epg.isNotEmpty() && System.currentTimeMillis() - lastEpgAt < 12 * 3600_000L) return
         viewModelScope.launch {
             // Que primero se acomode la pantalla.
@@ -457,6 +500,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun refreshEpgInBackground(listId: String) {
+        if (shortEpgCreds != null) return
         viewModelScope.launch {
             val p = data.value.playlists.firstOrNull { it.id == listId } ?: return@launch
             if (epgRepo.refresh(p, repo.channels(listId))) {

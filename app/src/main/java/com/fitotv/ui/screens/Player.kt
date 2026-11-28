@@ -360,7 +360,7 @@ private fun Shade(content: @Composable () -> Unit) {
 
 @Composable
 private fun LiveBanner(vm: AppViewModel, ch: Channel, avatar: String?, profileName: String, listName: String) {
-    val (now, next) = epgFor(vm.epg, ch)
+    val (now, next) = vm.epgFor(ch)
     Shade {
         Box(Modifier.fillMaxSize()) {
             Row(

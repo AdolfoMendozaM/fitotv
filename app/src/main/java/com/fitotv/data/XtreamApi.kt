@@ -221,6 +221,23 @@ object XtreamApi {
         )
     }
 
+    /** Lo que pasa ahora y después en un canal (guía corta del proveedor, títulos en base64). */
+    fun shortEpg(c: Creds, streamId: String): List<Programme> {
+        val root = Http.open(c.api("get_short_epg", "&stream_id=$streamId&limit=12")) { readObject(it) }
+        val list = root["epg_listings"] as? JsonArray ?: return emptyList()
+        fun b64(s: String): String = try {
+            String(android.util.Base64.decode(s, android.util.Base64.DEFAULT), Charsets.UTF_8).trim()
+        } catch (e: Exception) {
+            s
+        }
+        return list.mapNotNull { el ->
+            val o = el as? JsonObject ?: return@mapNotNull null
+            val start = o.str("start_timestamp").toLongOrNull() ?: return@mapNotNull null
+            val stop = o.str("stop_timestamp").toLongOrNull() ?: return@mapNotNull null
+            Programme(start * 1000, stop * 1000, b64(o.str("title")).ifEmpty { "Sin título" }, b64(o.str("description")).take(300))
+        }.sortedBy { it.start }
+    }
+
     // ----- Lectura de JSON -----
 
     private fun readObject(input: InputStream): JsonObject {

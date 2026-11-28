@@ -7,6 +7,7 @@ Contesta player_api.php (cuenta, categorías, canales, películas, series y temp
 get.php (la lista M3U equivalente, con un renglón por episodio) y xmltv.php (guía corta).
 Todo se genera al vuelo y se manda por partes para no llenar la memoria de la compu.
 """
+import base64
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -90,6 +91,18 @@ class H(BaseHTTPRequestHandler):
                 seasons = ",".join(f'{{"season_number":{s},"name":"Season {s}"}}' for s in range(1, SEASONS + 1))
                 self.wfile.write(('{"info":{"name":"Serie %d","plot":"Una serie de prueba con %d temporadas.","releaseDate":"2021-03-01"},'
                                   '"seasons":[%s],"episodes":{%s}}' % (sid, SEASONS, seasons, ",".join(eps))).encode())
+            elif a == "get_short_epg":
+                sid = int(q.get("stream_id", "1"))
+                now = int(time.time())
+                base_t = now - now % 1800
+                items = []
+                for k in range(6):
+                    t0 = base_t + (k - 1) * 1800
+                    title = base64.b64encode(f"Programa {k + 1} del canal {sid}".encode()).decode()
+                    desc = base64.b64encode("Guía de prueba".encode()).decode()
+                    items.append(f'{{"title":"{title}","description":"{desc}","start_timestamp":"{t0}","stop_timestamp":"{t0 + 1800}"}}')
+                self.start()
+                self.wfile.write(('{"epg_listings":[' + ",".join(items) + "]}").encode())
             else:
                 self.start(); self.wfile.write(b"[]")
         elif u.path.endswith("/get.php") or u.path.endswith(".m3u"):

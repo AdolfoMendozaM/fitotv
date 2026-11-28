@@ -404,7 +404,7 @@ fun SearchScreen(vm: AppViewModel) {
                         itemsIndexed(results, key = { _, c -> c.id }) { _, ch ->
                             ChannelCard(
                                 ch,
-                                if (ch.kind == ContentKind.LIVE) epgFor(vm.epg, ch).first else null,
+                                if (ch.kind == ContentKind.LIVE) vm.epgFor(ch).first else null,
                                 onClick = {
                                     when {
                                         ch.isShow -> vm.go(Screen.Series(ch.id))
