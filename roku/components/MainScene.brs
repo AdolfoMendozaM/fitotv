@@ -22,6 +22,9 @@ sub init()
         m.sfx[n] = s
     end for
 
+    ' Episodios y películas que no están en la lista guardada (series de Xtream, "Continuar viendo").
+    m.extra = CreateObject("roSGNode", "ContentNode")
+
     m.epg = CreateObject("roSGNode", "EpgTask")
     m.global.addFields({epg: m.epg})
     m.epg.control = "run"
@@ -320,7 +323,7 @@ sub onListResult(ev as object)
         end if
         save()
         m.global.content = r.content
-        m.epg.config = epgConfig(l, r.epgUrl)
+        m.epg.config = epgConfig(l, r.epgUrl, r.xt)
         st = "ready"
         if r.mode = "check" then st = "added"
         if r.mode = "load" and m.quiet then toast({title: "Lista actualizada", text: l.name + " trae " + r.count.ToStr() + " canales y programas."})
@@ -339,7 +342,8 @@ sub onListResult(ev as object)
     end if
 end sub
 
-function epgConfig(l as object, epgUrl as string) as object
+function epgConfig(l as object, epgUrl as string, xt = invalid as dynamic) as object
+    if xt <> invalid then return {mode: "xtream", api: xtreamApi(xt.server, xt.user, xt.pass)}
     if l.kind = "XTREAM" then return {mode: "xtream", api: xtreamApi(l.server, l.user, l.pass)}
     u = epgUrl
     if l.epgUrl <> invalid and l.epgUrl <> "" then u = l.epgUrl
@@ -411,8 +415,31 @@ end function
 
 function channelNode(p as object) as dynamic
     c = m.global.content
-    if c = invalid then return invalid
-    return c.findNode(p.id)
+    n = invalid
+    if c <> invalid then n = c.findNode(p.id)
+    if n = invalid then n = m.extra.findNode(p.id)
+    return n
+end function
+
+function addExtra(p as object) as dynamic
+    if p.node <> invalid then m.extra.appendChild(p.node)
+    return true
+end function
+
+' Copia de lo que estás viendo para "Continuar viendo", aunque al volver a abrir no esté cargado.
+function snapshotOf(n as object) as object
+    return {title: n.title, url: n.url, streamFormat: n.streamFormat, logo: n.HDPosterUrl, kind: n.kind, group: n.group, seriesId: n.seriesId, season: n.season, episode: n.episode}
+end function
+
+function nodeFromSnapshot(id as string, s as object) as object
+    n = m.extra.createChild("ContentNode")
+    n.id = id
+    n.title = s.title
+    n.url = s.url
+    n.streamFormat = s.streamFormat
+    n.HDPosterUrl = s.logo
+    n.addFields({num: 0, group: s.group, kind: s.kind, tvgId: "", sid: "", ua: "", ref: "", seriesId: s.seriesId, season: s.season, episode: s.episode})
+    return n
 end function
 
 function nodeToAA(n as object) as object
@@ -423,7 +450,12 @@ function recordRecent(p as object) as dynamic
     l = activeList()
     if l = invalid or m.profileId = "" then return false
     d = pdOf(m.profileId)
-    keep = [{id: p.id, listId: l.id, kind: p.kind, at: nowSec(), posSec: p.posSec, dur: p.dur}]
+    rec = {id: p.id, listId: l.id, kind: p.kind, at: nowSec(), posSec: p.posSec, dur: p.dur}
+    if p.kind <> "LIVE" then
+        n = channelNode({id: p.id})
+        if n <> invalid then rec.snap = snapshotOf(n)
+    end if
+    keep = [rec]
     for each r in d.recents
         if r.id <> p.id and keep.Count() < 24 then keep.Push(r)
     end for
@@ -452,6 +484,7 @@ function recents(p as object) as dynamic
     for each r in d.recents
         if r.listId = l.id then
             n = channelNode({id: r.id})
+            if n = invalid and r.snap <> invalid then n = nodeFromSnapshot(r.id, r.snap)
             want = false
             if n <> invalid then
                 live = n.kind = "LIVE"
@@ -537,6 +570,7 @@ function search(p as object) as dynamic
     if c = invalid or Len(q) < 2 then return out
     for s = 0 to c.getChildCount() - 1
         sec = c.getChild(s)
+        if sec.id = "sec_episodes" then exit for
         for g = 0 to sec.getChildCount() - 1
             grp = sec.getChild(g)
             for i = 0 to grp.getChildCount() - 1

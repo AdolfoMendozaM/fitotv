@@ -158,6 +158,18 @@ sub onState()
     else if s = "finished" then
         if m.isVod then
             app("forgetRecent", {id: m.ch.id})
+            ' En series sigue el próximo episodio de la temporada.
+            nxt = invalid
+            if m.ch.kind = "SERIES" and m.zap <> invalid then
+                for i = 0 to m.zap.getChildCount() - 2
+                    if m.zap.getChild(i).id = m.ch.id then nxt = m.zap.getChild(i + 1)
+                end for
+            end if
+            if nxt <> invalid then
+                m.video.control = "stop"
+                startChannel(nxt.id)
+                return
+            end if
             m.ch = invalid
             app("back")
         else

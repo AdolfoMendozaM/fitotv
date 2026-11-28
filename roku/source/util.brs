@@ -879,3 +879,115 @@ function stripName(raw as string, remTags as object, remNotes as object, remTail
     if s = "" then s = raw.Trim()
     return {name: s, removed: removed, removedKey: removed.Join(",")}
 end function
+
+' ------------------------------------------------------------------ series
+' "El Chema S01 E05 - El regreso" → {show: "El Chema", season: 1, episode: 5, title: "El regreso"}.
+' Reconoce S01E05, S1 E5, T1 E5, 1x05, "Temporada 1 Capítulo 5" y "Season 1 Episode 5".
+function parseEpisode(name as string) as dynamic
+    n = fold(name)
+    sl = Len(n)
+    ' S01E05 / T1 E5
+    for i = 1 to sl
+        ch = Mid(n, i, 1)
+        if ch = "s" or ch = "t" then
+            r = readDigits(n, i + 1, 2)
+            if r <> invalid then
+                k = skipSeps(n, r.next)
+                if Mid(n, k, 1) = "e" then
+                    k2 = k + 1
+                    if Mid(n, k2, 1) = "p" then k2 = k2 + 1
+                    r2 = readDigits(n, k2, 4)
+                    if r2 <> invalid then
+                        ep = episodeOf(name, i, r.value, r2.value, r2.next)
+                        if ep <> invalid then return ep
+                    end if
+                end if
+            end if
+        end if
+    end for
+    ' 1x05
+    for i = 2 to sl - 2
+        if Mid(n, i, 1) = "x" and isDigits(Mid(n, i - 1, 1)) then
+            a = i - 1
+            if a > 1 and isDigits(Mid(n, a - 1, 1)) then a = a - 1
+            if a = 1 or not isDigits(Mid(n, a - 1, 1)) then
+                r2 = readDigits(n, i + 1, 3)
+                if r2 <> invalid and r2.next - (i + 1) >= 2 then
+                    ep = episodeOf(name, a, Int(Val(Mid(n, a, i - a))), r2.value, r2.next)
+                    if ep <> invalid then return ep
+                end if
+            end if
+        end if
+    end for
+    ' Temporada 1 Capítulo 5 / Season 1 Episode 5
+    for each w in [["temporada", ["capitulo", "episodio", "ep.", "ep", "e"]], ["season", ["episode", "ep.", "ep", "e"]]]
+        p = Instr(1, n, w[0])
+        if p > 0 then
+            k = p + Len(w[0])
+            while Mid(n, k, 1) = " "
+                k = k + 1
+            end while
+            r = readDigits(n, k, 2)
+            if r <> invalid then
+                k = skipSeps(n, r.next)
+                for each word in w[1]
+                    if Mid(n, k, Len(word)) = word then
+                        k2 = k + Len(word)
+                        while Mid(n, k2, 1) = " "
+                            k2 = k2 + 1
+                        end while
+                        r2 = readDigits(n, k2, 4)
+                        if r2 <> invalid then
+                            ep = episodeOf(name, p, r.value, r2.value, r2.next)
+                            if ep <> invalid then return ep
+                        end if
+                    end if
+                end for
+            end if
+        end if
+    end for
+    return invalid
+end function
+
+' Lee de 1 a max dígitos desde i; devuelve {value, next} o invalid.
+function readDigits(s as string, i as integer, maxDigits as integer) as dynamic
+    j = i
+    while j <= Len(s) and isDigits(Mid(s, j, 1)) and j - i < maxDigits
+        j = j + 1
+    end while
+    if j = i then return invalid
+    if j <= Len(s) and isDigits(Mid(s, j, 1)) then return invalid
+    return {value: Int(Val(Mid(s, i, j - i))), next: j}
+end function
+
+function skipSeps(s as string, i as integer) as integer
+    k = i
+    while k <= Len(s) and Instr(1, " .-_:", Mid(s, k, 1)) > 0
+        k = k + 1
+    end while
+    return k
+end function
+
+function isSepChar(c as string) as boolean
+    if c = "" then return false
+    return Instr(1, " -–—|:._([,", c) > 0
+end function
+
+function trimSeps(s as string, extraEnd = "" as string) as string
+    a = 1
+    b = Len(s)
+    while a <= b and isSepChar(Mid(s, a, 1))
+        a = a + 1
+    end while
+    while b >= a and (isSepChar(Mid(s, b, 1)) or (extraEnd <> "" and Instr(1, extraEnd, Mid(s, b, 1)) > 0))
+        b = b - 1
+    end while
+    if b < a then return ""
+    return Mid(s, a, b - a + 1)
+end function
+
+function episodeOf(name as string, showEnd as integer, season as integer, episode as integer, rest as integer) as dynamic
+    show = trimSeps(Left(name, showEnd - 1))
+    if show = "" then return invalid
+    return {show: show, season: season, episode: episode, title: trimSeps(Mid(name, rest), ")]")}
+end function

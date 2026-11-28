@@ -34,6 +34,7 @@
         <function name="goTab" />
         <function name="forgetRecent" />
         <function name="liveGroups" />
+        <function name="addExtra" />
     </interface>
     <script type="text/brightscript" uri="pkg:/source/util.brs" />
     <script type="text/brightscript" uri="pkg:/source/ui.brs" />

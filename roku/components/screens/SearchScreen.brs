@@ -98,7 +98,9 @@ sub onSelect()
     n = m.grid.content.getChild(m.grid.itemSelected)
     if n = invalid then return
     sfx("ok")
-    if n.kind = "LIVE" then
+    if n.kind = "SERIES" and n.url = "" and n.seriesId <> "" then
+        app("go", {screen: "SeriesScreen", params: {id: n.id}})
+    else if n.kind = "LIVE" then
         app("play", {id: n.id, zap: m.liveZap})
     else
         app("play", {id: n.id})
