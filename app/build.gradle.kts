@@ -114,6 +114,9 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
     implementation("androidx.media3:media3-ui:$media3")
     implementation("androidx.media3:media3-datasource-okhttp:$media3")
+    // Sonido que muchas teles no saben tocar solas (Dolby AC-3/E-AC-3, MP2, DTS), con FFmpeg.
+    // Versión armada por Jellyfin para Media3 1.5 (sirve para 1.5.x); al subir Media3 hay que subir esta.
+    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.5.0+1")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")

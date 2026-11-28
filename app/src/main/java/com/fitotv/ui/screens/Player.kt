@@ -134,6 +134,7 @@ fun PlayerScreen(vm: AppViewModel, s: Screen.Player) {
             }
 
             override fun onPlayerError(e: PlaybackException) {
+                if (player.recoverAudio(e)) return
                 buffering = false
                 error = describe(e)
             }

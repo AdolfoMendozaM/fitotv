@@ -23,14 +23,31 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import android.os.Handler
+import android.util.Log
+import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
+import androidx.media3.decoder.ffmpeg.FfmpegLibrary
+import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.Renderer
+import androidx.media3.exoplayer.RendererCapabilities
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.audio.AudioRendererEventListener
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -72,6 +89,14 @@ class FitoPlayer(context: Context, muted: Boolean, preview: Boolean = false) {
     private val dataSource = OkHttpDataSource.Factory(Http.client).setUserAgent(Http.USER_AGENT)
 
     val exo: ExoPlayer
+    private val selector: DefaultTrackSelector
+
+    // Si el decodificador de sonido de la tele falla con un canal, se usa el de FitoTV (FFmpeg) y,
+    // si tampoco se puede, el canal sigue con imagen y sin sonido en vez de dejar la pantalla en negro.
+    @Volatile
+    private var softAudio = false
+    private var noAudio = false
+    private var playing = ""
 
     init {
         val extractors = DefaultExtractorsFactory()
@@ -95,18 +120,52 @@ class FitoPlayer(context: Context, muted: Boolean, preview: Boolean = false) {
             AdaptiveTrackSelection.DEFAULT_MIN_DURATION_TO_RETAIN_AFTER_DISCARD_MS,
             0.75f,
         )
-        val selector = DefaultTrackSelector(context, adaptive)
+        selector = DefaultTrackSelector(context, adaptive)
         if (preview) selector.setParameters(selector.buildUponParameters().setMaxVideoSize(1280, 720))
-        exo = ExoPlayer.Builder(context)
+        exo = ExoPlayer.Builder(context, FitoRenderers(context) { softAudio })
             .setMediaSourceFactory(sources)
             .setLoadControl(load)
             .setTrackSelector(selector)
             .setBandwidthMeter(bandwidthMeter(context))
             .build()
         if (muted) exo.volume = 0f
+        exo.addAnalyticsListener(AudioLog { playing })
+    }
+
+    /**
+     * Si el error vino del sonido, lo arregla y vuelve a intentar sin avisar a la pantalla.
+     * Devuelve true cuando ya se está reintentando.
+     */
+    fun recoverAudio(e: PlaybackException): Boolean {
+        val ex = e as? ExoPlaybackException ?: return false
+        if (ex.type != ExoPlaybackException.TYPE_RENDERER) return false
+        val mime = ex.rendererFormat?.sampleMimeType
+        val audio = (mime != null && MimeTypes.isAudio(mime)) ||
+            e.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED ||
+            e.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED
+        if (!audio) return false
+        when {
+            !softAudio && mime != null && ffmpegHandles(mime) -> {
+                softAudio = true
+                Log.w(AudioLog.TAG, "canal=$playing: falló el sonido de la tele con $mime; ahora con FFmpeg")
+            }
+            !noAudio -> {
+                noAudio = true
+                selector.setParameters(selector.buildUponParameters().setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true))
+                Log.w(AudioLog.TAG, "canal=$playing: no se pudo reproducir el sonido ($mime); sigue sin sonido")
+            }
+            else -> return false
+        }
+        exo.prepare()
+        return true
     }
 
     fun play(channel: Channel, startMs: Long = 0) {
+        playing = channel.name
+        if (noAudio) {
+            noAudio = false
+            selector.setParameters(selector.buildUponParameters().setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false))
+        }
         val headers = HashMap<String, String>()
         if (channel.referrer.isNotBlank()) headers["Referer"] = channel.referrer
         dataSource.setDefaultRequestProperties(headers)
@@ -136,6 +195,86 @@ class FitoPlayer(context: Context, muted: Boolean, preview: Boolean = false) {
                 b.setMimeType(MimeTypes.VIDEO_MP2T)
         }
         return b.build()
+    }
+}
+
+@OptIn(UnstableApi::class)
+private fun ffmpegHandles(mime: String): Boolean = runCatching { FfmpegLibrary.supportsFormat(mime) }.getOrDefault(false)
+
+/**
+ * Decodificadores de sonido: primero los de la tele (así el Dolby sigue llegando a la barra de sonido)
+ * y, para lo que la tele no sabe tocar, el de FitoTV con FFmpeg. Muchos canales de México traen el
+ * sonido en Dolby (AC-3/E-AC-3), MP2 o DTS; sin esto se ven pero no suenan en varias teles.
+ * Con [soft] en true, todo lo que FFmpeg sabe tocar lo toca FFmpeg (para teles cuyo decodificador falla).
+ */
+@OptIn(UnstableApi::class)
+private class FitoRenderers(context: Context, private val soft: () -> Boolean) : DefaultRenderersFactory(context) {
+    init {
+        setExtensionRendererMode(EXTENSION_RENDERER_MODE_ON)
+        setEnableDecoderFallback(true)
+    }
+
+    override fun buildAudioRenderers(
+        context: Context,
+        extensionRendererMode: Int,
+        mediaCodecSelector: MediaCodecSelector,
+        enableDecoderFallback: Boolean,
+        audioSink: AudioSink,
+        eventHandler: Handler,
+        eventListener: AudioRendererEventListener,
+        out: ArrayList<Renderer>,
+    ) {
+        val adapters = codecAdapterFactory
+        val forceSoft = soft
+        out.add(object : MediaCodecAudioRenderer(
+            context, adapters, mediaCodecSelector, enableDecoderFallback, eventHandler, eventListener, audioSink,
+        ) {
+            override fun supportsFormat(mediaCodecSelector: MediaCodecSelector, format: Format): Int {
+                val mime = format.sampleMimeType
+                if (forceSoft() && mime != null && ffmpegHandles(mime)) {
+                    return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_SUBTYPE)
+                }
+                return super.supportsFormat(mediaCodecSelector, format)
+            }
+        })
+        out.add(FfmpegAudioRenderer(eventHandler, eventListener, audioSink))
+    }
+}
+
+/** Deja en el registro de la tele qué sonido trae cada canal y quién lo toca (para revisar "no suena"). */
+@OptIn(UnstableApi::class)
+private class AudioLog(private val channel: () -> String) : AnalyticsListener {
+    companion object {
+        const val TAG = "FitoAudio"
+    }
+
+    override fun onAudioInputFormatChanged(
+        eventTime: AnalyticsListener.EventTime,
+        format: Format,
+        decoderReuseEvaluation: DecoderReuseEvaluation?,
+    ) {
+        Log.i(TAG, "canal=${channel()}: sonido ${format.sampleMimeType} ${format.channelCount} canales ${format.sampleRate} Hz")
+    }
+
+    override fun onAudioDecoderInitialized(
+        eventTime: AnalyticsListener.EventTime,
+        decoderName: String,
+        initializedTimestampMs: Long,
+        initializationDurationMs: Long,
+    ) {
+        Log.i(TAG, "canal=${channel()}: decodificador $decoderName")
+    }
+
+    override fun onAudioPositionAdvancing(eventTime: AnalyticsListener.EventTime, playoutStartSystemTimeMs: Long) {
+        Log.i(TAG, "canal=${channel()}: ya suena")
+    }
+
+    override fun onTracksChanged(eventTime: AnalyticsListener.EventTime, tracks: Tracks) {
+        for (g in tracks.groups) {
+            if (g.type == C.TRACK_TYPE_AUDIO && !g.isSupported) {
+                Log.w(TAG, "canal=${channel()}: sonido sin decodificador ${g.getTrackFormat(0).sampleMimeType}")
+            }
+        }
     }
 }
 
@@ -178,7 +317,7 @@ fun LivePreview(channel: Channel?, modifier: Modifier = Modifier) {
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                state = 2
+                if (!player.recoverAudio(error)) state = 2
             }
         }
         player.exo.addListener(listener)
