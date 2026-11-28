@@ -1,0 +1,68 @@
+name: Armar FitoTV para Roku
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "roku/**"
+      - ".github/workflows/roku.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: roku
+  cancel-in-progress: true
+
+jobs:
+  roku:
+    name: App para Roku
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Revisar el código
+        working-directory: roku
+        run: npx --yes -p brighterscript@0.73.8 bsc --project bsconfig.json
+
+      - name: Ponerle versión
+        working-directory: roku
+        run: |
+          sed -i "s/^build_version=.*/build_version=${GITHUB_RUN_NUMBER}/" manifest
+          major=$(grep '^major_version=' manifest | cut -d= -f2)
+          minor=$(grep '^minor_version=' manifest | cut -d= -f2)
+          echo "ROKU_VERSION=${major}.${minor}.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+
+      - name: Armar el zip
+        working-directory: roku
+        run: |
+          zip -r -9 "../FitoTV-roku-${ROKU_VERSION}.zip" manifest source components images fonts sounds -x "*.DS_Store"
+          cp "../FitoTV-roku-${ROKU_VERSION}.zip" ../FitoTV-roku.zip
+          ls -la ../FitoTV-roku*.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FitoTV-roku-${{ env.ROKU_VERSION }}
+          path: FitoTV-roku-${{ env.ROKU_VERSION }}.zip
+
+      # Se publica como "prerelease" y sin marcarla como la más nueva:
+      # así no le gana a la de Android, que se actualiza sola desde "latest".
+      - name: Publicar el zip
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: roku-v${{ env.ROKU_VERSION }}
+          name: FitoTV para Roku ${{ env.ROKU_VERSION }}
+          prerelease: true
+          make_latest: "false"
+          body: |
+            Para probar en tu Roku (modo desarrollador):
+            1. En la compu, abre la dirección de tu Roku (http://IP-DEL-ROKU) y entra con el usuario rokudev.
+            2. En "Development Application Installer", sube FitoTV-roku.zip y presiona Install.
+          files: |
+            FitoTV-roku.zip
+            FitoTV-roku-${{ env.ROKU_VERSION }}.zip
