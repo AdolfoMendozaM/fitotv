@@ -138,7 +138,7 @@ class H(BaseHTTPRequestHandler):
             cat = (i % len(VOD_CATS)) + 1
             sep = "," if i > 1 else ""
             yield (f'{sep}{{"num":{i},"name":"Película número {i} ({1990 + i % 36})","stream_type":"movie","stream_id":{100000 + i},'
-                   f'"stream_icon":"","rating":"7.1","added":"1700000000","category_id":"{cat}","container_extension":"mp4"}}')
+                   f'"stream_icon":"","rating":"7.1","added":"{1700000000 + i * 60}","category_id":"{cat}","container_extension":"mp4"}}')
         yield "]"
 
     def series_items(self):
@@ -147,7 +147,7 @@ class H(BaseHTTPRequestHandler):
             cat = (i % len(SER_CATS)) + 1
             sep = "," if i > 1 else ""
             yield (f'{sep}{{"num":{i},"name":"Serie {i}","series_id":{i},"cover":"","plot":"Trama","category_id":"{cat}",'
-                   f'"last_modified":"1700000000"}}')
+                   f'"last_modified":"{1700000000 + i * 60}"}}')
         yield "]"
 
     def m3u(self, base):

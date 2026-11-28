@@ -2,6 +2,8 @@ name: Probar en emulador de tele
 
 on:
   workflow_dispatch:
+  push:
+    branches: [prueba-*]
 
 permissions:
   contents: write

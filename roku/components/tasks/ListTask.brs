@@ -79,6 +79,7 @@ sub m3uLoad(p as object, l as object)
         fail(p, "Esta lista no trae un grupo Infantil. Prueba con otra lista.")
         return
     end if
+    sortNewest(t)
     m.top.result = {ok: true, mode: p.mode, list: l, content: t.root, count: total, live: live, epgUrl: parsed.epgUrl, stale: stale}
 end sub
 
@@ -140,7 +141,8 @@ function addChannel(t as object, ch as object) as boolean
                 sh.id = "show:" + key
                 sh.title = ep.show
                 sh.HDPosterUrl = ch.logo
-                sh.addFields({num: 0, group: ch.group, kind: "SERIES", tvgId: "", sid: "", ua: "", ref: "", seriesId: key, season: 0, episode: 0})
+                sh.addFields({num: 0, group: ch.group, kind: "SERIES", tvgId: "", sid: "", ua: "", ref: "", seriesId: key, season: 0, episode: 0, rk: 0})
+                holder.addFields({show: sh})
                 holder = t.secs.EPISODES.createChild("ContentNode")
                 holder.id = "eps:" + key
                 t.shows[key] = holder
@@ -148,6 +150,9 @@ function addChannel(t as object, ch as object) as boolean
             n = holder.createChild("ContentNode")
             fillNode(n, ch)
             n.setFields({seriesId: key, season: ep.season, episode: ep.episode})
+            ' La serie es tan nueva como su episodio más nuevo.
+            k = numOf(n.sid)
+            if k > holder.show.rk then holder.show.rk = k
             n.addFields({epTitle: ep.title})
             return true
         end if
@@ -157,6 +162,34 @@ function addChannel(t as object, ch as object) as boolean
     fillNode(n, ch)
     return true
 end function
+
+' Películas y series de lo más nuevo a lo más viejo dentro de cada categoría. Las listas M3U no traen
+' fecha; el número del video en el servidor sirve, porque los proveedores los numeran en orden.
+sub sortNewest(t as object)
+    for each kind in ["MOVIE", "SERIES"]
+        sec = t.secs[kind]
+        for gi = 0 to sec.getChildCount() - 1
+            g = sec.getChild(gi)
+            n = g.getChildCount()
+            if n > 1 then
+                items = []
+                kids = g.getChildren(-1, 0)
+                for each c in kids
+                    k = 0
+                    if c.hasField("rk") then k = c.rk else k = numOf(c.sid)
+                    items.Push({k: k, n: c})
+                end for
+                items.SortBy("k", "r")
+                g.removeChildrenIndex(n, 0)
+                ordered = []
+                for each it in items
+                    ordered.Push(it.n)
+                end for
+                g.appendChildren(ordered)
+            end if
+        end for
+    end for
+end sub
 
 sub fillNode(n as object, ch as object)
     n.id = ch.id

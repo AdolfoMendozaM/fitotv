@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -34,7 +35,10 @@ fun Root(vm: AppViewModel) {
     BackHandler(enabled = vm.stack.size > 1 && vm.screen !is Screen.Player) { vm.back() }
 
     Box(Modifier.fillMaxSize()) {
+        // Cada pantalla guarda su desplazamiento: al regresar de un canal o una película queda igual.
+        val saved = rememberSaveableStateHolder()
         Crossfade(targetState = vm.screen, animationSpec = tween(220), label = "pantallas") { s ->
+            saved.SaveableStateProvider(screenKey(s)) {
             when (s) {
                 Screen.Splash -> SplashScreen(vm)
                 Screen.Tutorial -> TutorialScreen(vm)
@@ -52,6 +56,7 @@ fun Root(vm: AppViewModel) {
                 Screen.Settings -> SettingsScreen(vm)
                 is Screen.Player -> PlayerScreen(vm, s)
             }
+            }
         }
         if (vm.revealing) RevealOverlay(onDone = { vm.revealing = false })
         ToastHost(vm.toast, onDone = { vm.toast = null })
@@ -62,6 +67,46 @@ fun Root(vm: AppViewModel) {
         }
         if (vm.updatePrompt && vm.update != null && main && !vm.revealing) UpdateDialog(vm)
     }
+}
+
+fun screenKey(s: Screen): String = when (s) {
+    is Screen.Catalog -> "catalog-${s.kind}"
+    is Screen.Series -> "series-${s.showId}"
+    is Screen.Player -> "player"
+    is Screen.CreateProfile -> "profile-${s.editId}"
+    is Screen.AddList -> "addlist"
+    else -> s.toString()
+}
+
+/** Primer elemento de la pantalla y, si regresas, el elemento que habías elegido. */
+class EntryFocus(val first: FocusRequester, val back: FocusRequester, val backKey: String?) {
+    /** El FocusRequester que le toca a un elemento: el que elegiste antes, o el primero. */
+    fun of(itemKey: String, isFirst: Boolean): FocusRequester? = when {
+        backKey != null && itemKey == backKey -> back
+        isFirst -> first
+        else -> null
+    }
+}
+
+/**
+ * Al entrar a una pantalla: si vienes de regreso (de un canal, película o serie), el foco vuelve a
+ * lo que elegiste; si no, va al primer elemento.
+ */
+@Composable
+fun rememberEntryFocus(vm: AppViewModel, screenKey: String, key: Any? = Unit): EntryFocus {
+    val ef = remember(screenKey) { EntryFocus(FocusRequester(), FocusRequester(), vm.returnTo.remove(screenKey)) }
+    LaunchedEffect(screenKey, key) {
+        delay(80)
+        if (ef.backKey != null) {
+            // Lo elegido puede tardar en aparecer (temporadas que se piden, búsquedas): se espera un poco.
+            repeat(25) {
+                if (runCatching { ef.back.requestFocus() }.isSuccess) return@LaunchedEffect
+                delay(60)
+            }
+        }
+        runCatching { ef.first.requestFocus() }
+    }
+    return ef
 }
 
 /** Pide el foco para el primer elemento de una pantalla en cuanto aparece. */

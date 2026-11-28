@@ -95,10 +95,13 @@ if wait_list "API"; then
   rail 4; sleep 4; shot G05-series
   key KEYCODE_DPAD_CENTER; sleep 6; shot G06-serie-temporadas
   key KEYCODE_DPAD_UP; key KEYCODE_DPAD_RIGHT; sleep 2; shot G07-serie-temporada-2
-  key KEYCODE_DPAD_DOWN; key KEYCODE_DPAD_CENTER; sleep 4; shot G08-episodio
-  key KEYCODE_BACK; sleep 2
-  key KEYCODE_BACK; sleep 2
+  key KEYCODE_DPAD_DOWN; key KEYCODE_DPAD_DOWN; key KEYCODE_DPAD_CENTER; sleep 4; shot G08-episodio
+  # Al regresar debe quedar enfocado el mismo episodio (el tercero de la temporada 2) y luego la misma serie.
+  key KEYCODE_BACK; sleep 3; shot G08b-regreso-a-la-serie
+  key KEYCODE_BACK; sleep 3; shot G08c-regreso-al-catalogo
   rail 3; sleep 4; shot G09-peliculas
+  key KEYCODE_DPAD_RIGHT; key KEYCODE_DPAD_RIGHT; key KEYCODE_DPAD_DOWN; key KEYCODE_DPAD_CENTER; sleep 4
+  key KEYCODE_BACK; sleep 3; shot G09b-regreso-a-peliculas
   for i in 1 2 3 4 5 6 7 8 9 10; do adb shell input keyevent KEYCODE_DPAD_DOWN; done
   sleep 2; shot G10-peliculas-abajo
   mem "API, después de recorrer"

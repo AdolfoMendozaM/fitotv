@@ -46,6 +46,7 @@ import com.fitotv.ui.components.MainScaffold
 import com.fitotv.ui.components.Spinner
 import com.fitotv.ui.components.Tab
 import com.fitotv.ui.rememberAutoFocus
+import com.fitotv.ui.rememberEntryFocus
 import com.fitotv.ui.theme.Fc
 import com.fitotv.ui.theme.T
 
@@ -141,15 +142,16 @@ fun SeriesScreen(vm: AppViewModel, s: Screen.Series) {
 @Composable
 private fun SeasonsAndEpisodes(vm: AppViewModel, show: Channel, info: XtreamApi.SeriesInfo, recents: List<com.fitotv.data.RecentItem>) {
     val progress = remember(recents) { recents.associateBy { it.channelId } }
-    // Empieza en la temporada del último episodio que viste.
+    val ef = rememberEntryFocus(vm, "series-${show.id}", show.id)
+    // Si regresas de un episodio, en su temporada; si no, en la del último episodio que viste.
     val startSeason = remember(info) {
-        val last = recents.firstOrNull { r -> info.seasons.any { s -> s.episodes.any { it.id == r.channelId } } }
-        info.seasons.indexOfFirst { s -> s.episodes.any { it.id == last?.channelId } }.coerceAtLeast(0)
+        val target = ef.backKey
+            ?: recents.firstOrNull { r -> info.seasons.any { s -> s.episodes.any { it.id == r.channelId } } }?.channelId
+        info.seasons.indexOfFirst { s -> s.episodes.any { it.id == target } }.coerceAtLeast(0)
     }
     var season by remember(info) { mutableIntStateOf(startSeason) }
     val current = info.seasons[season.coerceIn(0, info.seasons.lastIndex)]
     val resumeId = remember(current, recents) { current.episodes.firstOrNull { progress[it.id] != null }?.id }
-    val firstFr = rememberAutoFocus(show.id)
 
     Column(Modifier.fillMaxSize()) {
         if (info.seasons.size > 1) {
@@ -182,8 +184,11 @@ private fun SeasonsAndEpisodes(vm: AppViewModel, show: Channel, info: XtreamApi.
                 EpisodeRow(
                     ep = ep,
                     fraction = vodFraction(r),
-                    focusRequester = if ((resumeId == null && idx == 0) || ep.id == resumeId) firstFr else null,
-                    onClick = { vm.play(ep, current.episodes) },
+                    focusRequester = ef.of(ep.id, (resumeId == null && idx == 0) || ep.id == resumeId),
+                    onClick = {
+                        vm.markReturn("series-${show.id}", ep.id)
+                        vm.play(ep, current.episodes)
+                    },
                 )
             }
         }

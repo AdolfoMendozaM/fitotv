@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,6 +55,7 @@ import com.fitotv.ui.components.Switch
 import com.fitotv.ui.components.Tab
 import com.fitotv.ui.components.TvTextField
 import com.fitotv.ui.rememberAutoFocus
+import com.fitotv.ui.rememberEntryFocus
 import com.fitotv.ui.theme.Fc
 import com.fitotv.ui.theme.T
 import java.text.SimpleDateFormat
@@ -281,11 +283,11 @@ fun CatalogScreen(vm: AppViewModel, s: Screen.Catalog) {
     val catalog = vm.catalog(s.kind)
     val all = catalog.items
     val cats = catalog.cats
-    var cat by remember(s.kind) { mutableStateOf<String?>(null) }
+    var cat by rememberSaveable(s.kind) { mutableStateOf<String?>(null) }
     val selectedCat = cat
     val shown = if (selectedCat == null) all else catalog.byCat[selectedCat].orEmpty()
     val recents = remember(d) { vm.profileData(d).recents.associateBy { it.channelId } }
-    val firstFr = rememberAutoFocus(s.kind)
+    val ef = rememberEntryFocus(vm, "catalog-${s.kind}", s.kind)
 
     MainScaffold(vm, tab) {
         if (all.isEmpty()) {
@@ -315,7 +317,8 @@ fun CatalogScreen(vm: AppViewModel, s: Screen.Catalog) {
                 contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 40.dp),
             ) {
                 itemsIndexed(shown, key = { _, c -> c.id }) { i, ch ->
-                    PosterCard(ch, recents[ch.id]?.let { vodFraction(it) } ?: 0f, if (i == 0) firstFr else null) {
+                    PosterCard(ch, recents[ch.id]?.let { vodFraction(it) } ?: 0f, ef.of(ch.id, i == 0)) {
+                        vm.markReturn("catalog-${s.kind}", ch.id)
                         if (ch.isShow) vm.go(Screen.Series(ch.id)) else vm.play(ch, listOf(ch))
                     }
                 }
@@ -367,8 +370,9 @@ private fun PosterCard(ch: Channel, progress: Float, fr: androidx.compose.ui.foc
 
 @Composable
 fun SearchScreen(vm: AppViewModel) {
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     var results by remember { mutableStateOf<List<Channel>>(emptyList()) }
+    val ef = rememberEntryFocus(vm, "search")
     // La búsqueda corre fuera de la pantalla y espera a que dejes de escribir un momento.
     LaunchedEffect(query, vm.lib) {
         if (query.trim().length < 2) {
@@ -378,7 +382,6 @@ fun SearchScreen(vm: AppViewModel) {
         kotlinx.coroutines.delay(180)
         results = vm.search(query)
     }
-    val fieldFr = rememberAutoFocus()
     MainScaffold(vm, Tab.SEARCH) {
         Column(
             Modifier
@@ -387,7 +390,7 @@ fun SearchScreen(vm: AppViewModel) {
         ) {
             T("Buscar", size = 40.sp, display = true)
             Gap(h = 16.dp)
-            TvTextField(query, { query = it }, "Canal, película o serie", width = 640.dp, focusRequester = fieldFr)
+            TvTextField(query, { query = it }, "Canal, película o serie", width = 640.dp, focusRequester = ef.first)
             Gap(h = 24.dp)
             when {
                 query.trim().length < 2 -> T("Escribe al menos dos letras. Presiona OK para abrir el teclado.", size = 18.sp, color = Fc.Muted)
@@ -405,7 +408,9 @@ fun SearchScreen(vm: AppViewModel) {
                             ChannelCard(
                                 ch,
                                 if (ch.kind == ContentKind.LIVE) vm.epgFor(ch).first else null,
+                                focusRequester = ef.of(ch.id, false),
                                 onClick = {
+                                    vm.markReturn("search", ch.id)
                                     when {
                                         ch.isShow -> vm.go(Screen.Series(ch.id))
                                         ch.kind == ContentKind.LIVE -> vm.play(ch, results.filter { it.kind == ContentKind.LIVE })

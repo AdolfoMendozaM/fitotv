@@ -105,6 +105,7 @@ object XtreamApi {
                 logo = o.str("stream_icon").trim(),
                 group = group,
                 kind = ContentKind.MOVIE,
+                added = o.str("added").toLongOrNull() ?: 0,
             )
         }
         out += section(c, "get_series_categories", "get_series") { o, group ->
@@ -118,6 +119,8 @@ object XtreamApi {
                 group = group,
                 kind = ContentKind.SERIES,
                 seriesId = "x:$id",
+                // La fecha del último episodio subido: así las series con capítulos nuevos salen primero.
+                added = o.str("last_modified").toLongOrNull() ?: o.str("added").toLongOrNull() ?: 0,
             )
         }
         // Los canales en vivo llevan número consecutivo si el proveedor no lo manda.

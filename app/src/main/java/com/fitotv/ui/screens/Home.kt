@@ -56,7 +56,7 @@ import com.fitotv.ui.components.RoundIconButton
 import com.fitotv.ui.components.SectionTitle
 import com.fitotv.ui.components.Spinner
 import com.fitotv.ui.components.Tab
-import com.fitotv.ui.rememberAutoFocus
+import com.fitotv.ui.rememberEntryFocus
 import com.fitotv.ui.theme.Fc
 import com.fitotv.ui.theme.T
 
@@ -107,7 +107,7 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
     var hero by remember(list.id) { mutableStateOf<HeroItem?>(null) }
     var compact by remember { mutableStateOf(false) }
     val shown = hero ?: fallback
-    val firstFr = rememberAutoFocus(list.id)
+    val ef = rememberEntryFocus(vm, "home", list.id)
     val firstSection = when {
         vodRecents.isNotEmpty() -> 0
         liveRecents.isNotEmpty() -> 1
@@ -156,9 +156,12 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
                             itemsIndexed(vodRecents, key = { _, p -> "v" + p.first.id }) { i, (ch, r) ->
                                 VodCard(
                                     ch, r,
-                                    onClick = { vm.play(ch, listOf(ch)) },
+                                    onClick = {
+                                        vm.markReturn("home", "v:" + ch.id)
+                                        vm.play(ch, listOf(ch))
+                                    },
                                     onFocus = { hero = HeroItem.Vod(ch, r); compact = false },
-                                    focusRequester = if (i == 0 && firstSection == 0) firstFr else null,
+                                    focusRequester = ef.of("v:" + ch.id, i == 0 && firstSection == 0),
                                 )
                             }
                             item(key = "todo") {
@@ -201,9 +204,12 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
                             itemsIndexed(liveRecents, key = { _, p -> "l" + p.first.id }) { i, (ch, r) ->
                                 RecentChannelCard(
                                     ch, vm.epgFor(ch).first, r.at,
-                                    onClick = { playLive(ch, zap) },
+                                    onClick = {
+                                        vm.markReturn("home", "l:" + ch.id)
+                                        playLive(ch, zap)
+                                    },
                                     onFocus = { hero = HeroItem.Live(ch); compact = false },
-                                    focusRequester = if (i == 0 && firstSection == 1) firstFr else null,
+                                    focusRequester = ef.of("l:" + ch.id, i == 0 && firstSection == 1),
                                 )
                             }
                         }
@@ -264,13 +270,16 @@ private fun HomeContent(vm: AppViewModel, list: Playlist, name: String, d: AppDa
                         ChannelCard(
                             ch,
                             vm.epgFor(ch).first,
-                            onClick = { playLive(ch, gridChannels) },
+                            onClick = {
+                                vm.markReturn("home", "g:" + ch.id)
+                                playLive(ch, gridChannels)
+                            },
                             // Sin recientes arriba, la primera fila de canales aún cabe con todo el encabezado.
                             onFocus = { hero = HeroItem.Live(ch); compact = r >= 1 || firstSection != 3 },
                             showGroup = false,
                             modifier = Modifier.weight(1f),
                             favorite = ch.id in favorites,
-                            focusRequester = if (r == 0 && i == 0 && firstSection == 3) firstFr else null,
+                            focusRequester = ef.of("g:" + ch.id, r == 0 && i == 0 && firstSection == 3),
                         )
                     }
                     repeat(5 - rows[r].size) { Box(Modifier.weight(1f)) }

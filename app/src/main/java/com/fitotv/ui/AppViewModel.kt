@@ -116,6 +116,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val extra = java.util.concurrent.ConcurrentHashMap<String, Channel>()
 
     fun channel(id: String): Channel? = lib.byId[id] ?: extra[id]
+
+    /**
+     * Lo que elegiste en cada pantalla ("home", "catalog-MOVIE", "series-…"), para que al regresar
+     * de un canal, una película o una serie el foco vuelva a ese mismo lugar y no al principio.
+     */
+    val returnTo = HashMap<String, String>()
+
+    fun markReturn(screenKey: String, itemKey: String) {
+        returnTo[screenKey] = itemKey
+    }
     var epg by mutableStateOf<Map<String, List<Programme>>>(emptyMap())
         private set
     var selectedGroup by mutableStateOf<String?>(null)

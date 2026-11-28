@@ -58,6 +58,17 @@ class Library private constructor(
     companion object {
         val EMPTY = build(emptyList(), kids = false)
 
+        /**
+         * Qué tan nuevo es: la fecha que da el proveedor; si no la da, el número del video en su
+         * servidor (los proveedores numeran en orden, así que un número más alto es más reciente).
+         */
+        fun recency(c: Channel): Long {
+            if (c.added > 0) return c.added
+            val tail = (if (c.url.isNotEmpty()) c.url.substringBefore('?').substringAfterLast('/') else c.seriesId.substringAfter(':'))
+                .substringBefore('.')
+            return if (tail.isNotEmpty() && tail.length <= 12 && tail.all { it.isDigit() }) tail.toLong() else 0L
+        }
+
         fun build(raw: List<Channel>, kids: Boolean): Library {
             val visible = if (kids) raw.filter { Fold.isKidsGroup(it.group) } else raw
             val live = ArrayList<Channel>()
@@ -101,6 +112,14 @@ class Library private constructor(
                 }
             }
             episodes.values.forEach { it.sortWith(compareBy<Channel>({ c -> c.season }, { c -> c.episode })) }
+            // De lo más nuevo a lo más viejo (en "Todas" y dentro de cada categoría).
+            val showRecency = HashMap<String, Long>()
+            episodes.forEach { (key, eps) -> showRecency[key] = eps.maxOf { recency(it) } }
+            // La clave se calcula una vez por elemento (no en cada comparación): con 100 mil películas se nota.
+            val moviesByDate = movies.map { it to recency(it) }.sortedByDescending { it.second }.map { it.first }
+            val showsByDate = shows.map { s ->
+                s to (if (s.isShow && s.seriesId.startsWith("m:")) showRecency[s.seriesId] ?: 0L else recency(s))
+            }.sortedByDescending { it.second }.map { it.first }
             val byId = HashMap<String, Channel>(visible.size + shows.size)
             visible.forEach { byId[it.id] = it }
             shows.forEach { byId[it.id] = it }
@@ -115,8 +134,8 @@ class Library private constructor(
                 live = live,
                 groups = liveByGroup.map { Group(it.key, it.value.size) },
                 liveByGroup = liveByGroup,
-                movies = Catalog.of(movies),
-                shows = Catalog.of(shows),
+                movies = Catalog.of(moviesByDate),
+                shows = Catalog.of(showsByDate),
                 episodesByShow = episodes,
                 searchItems = searchItems,
                 searchKeys = keys,
