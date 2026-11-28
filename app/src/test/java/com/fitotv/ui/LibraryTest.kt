@@ -37,10 +37,17 @@ class LibraryTest {
         assertEquals(listOf(1 to 1, 1 to 2, 2 to 1), eps.map { it.season to it.episode })
         assertEquals(1, lib.movies.items.size)
         assertEquals(listOf("Noticias"), lib.groups.map { it.name })
-        // El canal repetido no aparece dos veces.
-        assertEquals(1, lib.live.size)
         assertEquals(listOf("El Chema"), lib.search("chema").map { it.name })
         assertEquals("Duro de matar (1988)", lib.search("DURO")[0].name)
+    }
+
+    @Test
+    fun idRepetidoUnaSolaVez() {
+        val raw = listOf(
+            Channel("a", 1, "Uno", "http://x/1", group = "G"),
+            Channel("a", 1, "Uno", "http://x/1", group = "G"),
+        )
+        assertEquals(1, Library.build(raw, kids = false).live.size)
     }
 
     @Test

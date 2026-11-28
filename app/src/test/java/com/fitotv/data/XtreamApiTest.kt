@@ -1,6 +1,6 @@
 package com.fitotv.data
 
-import com.sun.net.httpserver.HttpServer
+import fi.iki.elonen.NanoHTTPD
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -8,54 +8,55 @@ import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import java.io.IOException
-import java.net.InetSocketAddress
 
 /** Un servidor Xtream de mentira en la compu de pruebas. */
 class XtreamApiTest {
-    private lateinit var server: HttpServer
+    private lateinit var server: NanoHTTPD
     private var base = ""
     private var status = "Active"
     private var vodCount = 3
 
     @Before
     fun up() {
-        server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        server.createContext("/player_api.php") { ex ->
-            val q = ex.requestURI.rawQuery.orEmpty()
-            val action = Regex("action=([a-z_]+)").find(q)?.groupValues?.get(1)
-            val body = when (action) {
-                null -> """{"user_info":{"auth":1,"status":"$status","allowed_output_formats":["m3u8","ts"]},"server_info":{}}"""
-                "get_live_categories" -> """[{"category_id":"1","category_name":"Noticias"},{"category_id":"2","category_name":"Deportes"}]"""
-                "get_live_streams" -> """[{"num":1,"name":"Deportes 1","stream_id":20,"stream_icon":"","epg_channel_id":"dep1","category_id":"2"},
-                    {"num":2,"name":"Noticias 24","stream_id":"10","stream_icon":"http://l/n.png","epg_channel_id":null,"category_id":1}]"""
-                "get_vod_categories" -> """[{"category_id":"5","category_name":"Acción"}]"""
-                "get_vod_streams" -> buildString {
-                    append('[')
-                    for (i in 1..vodCount) {
-                        if (i > 1) append(',')
-                        append("""{"name":"Peli $i (2020)","stream_id":${1000 + i},"stream_icon":"http://p/$i.jpg","category_id":"5","container_extension":"mkv"}""")
-                    }
-                    append(']')
+        server = object : NanoHTTPD("127.0.0.1", 0) {
+            override fun serve(session: IHTTPSession): Response {
+                if (session.uri != "/player_api.php") {
+                    return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "no")
                 }
-                "get_series_categories" -> """[{"category_id":"9","category_name":"Series Paramount"}]"""
-                "get_series" -> """[{"name":"El Chema","series_id":77,"cover":"http://c/77.jpg","category_id":"9"}]"""
-                "get_series_info" -> """{"info":{"plot":"Narco","cover":"http://c/77big.jpg","releaseDate":"2016-05-01"},
-                    "seasons":[{"season_number":1,"name":"Season 1"}],
-                    "episodes":{"1":[{"id":"501","episode_num":2,"title":"El Chema S01 E02","container_extension":"mp4","info":{"movie_image":"http://i/2.jpg"}},
-                                     {"id":"500","episode_num":1,"title":"El Chema S01 E01","container_extension":"mp4","info":{}}],
-                                "2":[{"id":"600","episode_num":1,"title":"El Chema S02 E01","container_extension":"mkv"}]}}"""
-                else -> "[]"
+                val q = session.queryParameterString.orEmpty()
+                val action = Regex("action=([a-z_]+)").find(q)?.groupValues?.get(1)
+                val body = when (action) {
+                    null -> """{"user_info":{"auth":1,"status":"$status","allowed_output_formats":["m3u8","ts"]},"server_info":{}}"""
+                    "get_live_categories" -> """[{"category_id":"1","category_name":"Noticias"},{"category_id":"2","category_name":"Deportes"}]"""
+                    "get_live_streams" -> """[{"num":1,"name":"Deportes 1","stream_id":20,"stream_icon":"","epg_channel_id":"dep1","category_id":"2"},
+                        {"num":2,"name":"Noticias 24","stream_id":"10","stream_icon":"http://l/n.png","epg_channel_id":null,"category_id":1}]"""
+                    "get_vod_categories" -> """[{"category_id":"5","category_name":"Acción"}]"""
+                    "get_vod_streams" -> buildString {
+                        append('[')
+                        for (i in 1..vodCount) {
+                                if (i > 1) append(',')
+                                append("""{"name":"Peli $i (2020)","stream_id":${1000 + i},"stream_icon":"http://p/$i.jpg","category_id":"5","container_extension":"mkv"}""")
+                        }
+                        append(']')
+                    }
+                    "get_series_categories" -> """[{"category_id":"9","category_name":"Series Paramount"}]"""
+                    "get_series" -> """[{"name":"El Chema","series_id":77,"cover":"http://c/77.jpg","category_id":"9"}]"""
+                    "get_series_info" -> """{"info":{"plot":"Narco","cover":"http://c/77big.jpg","releaseDate":"2016-05-01"},
+                        "seasons":[{"season_number":1,"name":"Season 1"}],
+                        "episodes":{"1":[{"id":"501","episode_num":2,"title":"El Chema S01 E02","container_extension":"mp4","info":{"movie_image":"http://i/2.jpg"}},
+                                                 {"id":"500","episode_num":1,"title":"El Chema S01 E01","container_extension":"mp4","info":{}}],
+                                        "2":[{"id":"600","episode_num":1,"title":"El Chema S02 E01","container_extension":"mkv"}]}}"""
+                    else -> "[]"
+                }
+                return newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", body)
             }
-            val bytes = body.toByteArray()
-            ex.sendResponseHeaders(200, bytes.size.toLong())
-            ex.responseBody.use { it.write(bytes) }
         }
-        server.start()
-        base = "http://127.0.0.1:${server.address.port}"
+        server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, true)
+        base = "http://127.0.0.1:${server.listeningPort}"
     }
 
     @After
-    fun down() = server.stop(0)
+    fun down() = server.stop()
 
     @Test
     fun cargaCanalesPeliculasYSeries() {
