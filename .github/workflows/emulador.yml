@@ -27,7 +27,9 @@ jobs:
       - name: Armar versión de prueba
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :app:testGithubDebugUnitTest :app:assembleGithubDebug
+          mkdir -p recorrido
+          set -o pipefail
+          ./gradlew --no-daemon :app:testGithubDebugUnitTest :app:assembleGithubDebug 2>&1 | tee recorrido/armado.txt
 
       - name: Activar aceleración
         run: |
@@ -55,8 +57,10 @@ jobs:
       - name: Guardar las capturas en la rama "recorrido"
         if: always()
         run: |
+          mkdir -p recorrido
+          mkdir -p recorrido/pruebas && cp app/build/test-results/*/*/*.xml recorrido/pruebas/ 2>/dev/null || true
           cd recorrido
-          mogrify -resize 1280x720 *.png || true
+          mogrify -resize 1280x720 *.png 2>/dev/null || true
           git init -q
           git checkout -q -b recorrido
           git add -A
